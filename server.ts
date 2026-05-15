@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import cors from "cors";
+import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
@@ -11,6 +11,10 @@ async function startServer() {
   app.use(cors());
 
   // Proxy for CJ Dropshipping API to avoid CORS issues
+  app.get("/api/cj-proxy/health", (req, res) => {
+    res.json({ status: "ok", message: "CJ Proxy is active" });
+  });
+
   app.all("/api/cj-proxy/*", async (req, res) => {
     const path = req.params[0] || "";
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";

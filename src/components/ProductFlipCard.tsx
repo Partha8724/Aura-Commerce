@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { ShoppingCart, ArrowRight, Zap } from 'lucide-react';
 import { useStore } from '../store/useStore';

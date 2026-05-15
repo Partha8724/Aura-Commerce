@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { cjApi } from '../../lib/cjApi';
 import { supabase } from '../../lib/supabase';
