@@ -27,6 +27,7 @@ export interface Product {
   discount_price?: number;
   isHot?: boolean;
   isNew?: boolean;
+  isDemo?: boolean;
   tags?: string[];
   images?: string[];
   imageUrl?: string;

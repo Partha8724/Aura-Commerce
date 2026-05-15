@@ -48,6 +48,7 @@ export const initialProducts: Product[] = Array.from({ length: 50 }, (_, i) => {
     discount: Math.random() > 0.8 ? Math.floor(Math.random() * 20) + 10 : 0,
     isHot: Math.random() > 0.7,
     isNew: Math.random() > 0.8,
+    isDemo: true,
     tags: ['bestseller', 'premium'],
     images: [
       `https://picsum.photos/seed/${i + 100}/800/800`,

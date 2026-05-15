@@ -15,10 +15,10 @@ async function startServer() {
     res.json({ status: "ok", message: "CJ Proxy is active" });
   });
 
-  app.all("/api/cj-proxy/*", async (req, res) => {
-    const path = req.params[0] || "";
+  app.all(/^\/api\/cj-proxy\/(.*)/, async (req, res) => {
+    const cjPath = req.params[0] || "";
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
-    const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${path}${queryString ? "?" + queryString : ""}`;
+    const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
     
     console.log(`[CJ Proxy] ${req.method} -> ${targetUrl}`);
     
@@ -29,8 +29,13 @@ async function startServer() {
 
       // Forward ALL cj-related headers (case-insensitive check)
       Object.keys(req.headers).forEach(key => {
-        if (key.toLowerCase() === "cj-access-token") {
-          headers["CJ-Access-Token"] = req.headers[key] as string;
+        if (key.toLowerCase().startsWith("cj-")) {
+          const parts = key.split('-');
+          const normalizedKey = parts.map((part, index) => {
+            if (part.toLowerCase() === 'cj') return 'CJ';
+            return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+          }).join('-');
+          headers[normalizedKey] = req.headers[key] as string;
         }
       });
 
@@ -40,7 +45,7 @@ async function startServer() {
       };
 
       if (["POST", "PUT", "PATCH"].includes(req.method)) {
-        fetchOptions.body = JSON.stringify(req.body);
+        fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       }
 
       const response = await fetch(targetUrl, fetchOptions);
@@ -51,13 +56,17 @@ async function startServer() {
         data = JSON.parse(text);
       } catch (e) {
         console.error("[CJ Proxy] Failed to parse JSON response:", text);
-        return res.status(500).json({ code: 500, message: "Invalid JSON from CJ API" });
+        return res.status(200).json({ 
+          code: 500, 
+          message: "CJ API returned non-JSON response. Check your credentials or rate limits.",
+          raw: text.substring(0, 500)
+        });
       }
 
       res.status(response.status).json(data);
     } catch (error: any) {
       console.error("[CJ Proxy Error]:", error.message);
-      res.status(500).json({ code: 500, message: "Proxy error: " + error.message });
+      res.status(500).json({ code: 500, message: "Proxy networking error: " + error.message });
     }
   });
 

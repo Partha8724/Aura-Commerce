@@ -9,6 +9,73 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+function BotAssistant() {
+  const { products, botLogs, settings } = useStore();
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const demoProductsCount = products.filter(p => p.isDemo).length;
+  const realProductsCount = products.filter(p => !p.isDemo).length;
+
+  useEffect(() => {
+    if (demoProductsCount > 0 && !settings.cjConnected) {
+      setMessage("Hello! I'm Aura. You're currently in Demo Mode. Connect your CJ account to start importing real products!");
+    } else if (settings.cjConnected && realProductsCount === 0) {
+      setMessage("Excellent! Your CJ account is linked. Now, go to 'CJ Management' and paste a product URL to import your first real item.");
+    } else if (realProductsCount > 0 && demoProductsCount > 0) {
+      setMessage(`Great choice! You have ${realProductsCount} real products. I've automatically archived the demo products to keep your store clean.`);
+    } else {
+      setMessage("Your empire is growing. I'm monitoring your store for any price changes or order updates.");
+    }
+  }, [demoProductsCount, realProductsCount, settings.cjConnected]);
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="mb-4 w-72 bg-[#141414] border border-[#D4AF37]/30 rounded-2xl p-4 shadow-2xl shadow-gold/20"
+          >
+            <div className="flex items-center gap-3 mb-3 border-b border-white/10 pb-2">
+              <div className="w-8 h-8 rounded-full bg-[#D4AF37] flex items-center justify-center">
+                <Bot className="w-5 h-5 text-black" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Aura AI Assistant</h4>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Active Monitoring</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-300 leading-relaxed italic">"{message}"</p>
+            {botLogs.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="text-[10px] text-gray-500 uppercase font-bold mb-2">Latest Protocol</div>
+                <div className="text-[10px] text-[#D4AF37] truncate">{botLogs[0].message}</div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-14 h-14 rounded-full gold-gradient shadow-[0_0_20px_rgba(212,175,55,0.4)] flex items-center justify-center group transition-transform hover:rotate-12 active:scale-90"
+      >
+        <Bot className="w-7 h-7 text-black transition-transform group-hover:scale-110" />
+        {demoProductsCount > 0 && realProductsCount === 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#DC143C] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#0A0A0A]">
+            1
+          </span>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function AdminTab() {
   const { setActiveTab, stats } = useStore();
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -30,7 +97,9 @@ export function AdminTab() {
   ];
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#0A0A0A] text-white pt-20">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#0A0A0A] text-white pt-20 relative">
+      <BotAssistant />
+      
       {/* Mobile Menu Dropdown */}
       <div className="md:hidden p-4 border-b border-white/5 bg-[#141414]">
         <select 
@@ -306,7 +375,11 @@ function BotsSection() {
 
 function ConnectionsSection() {
   const { settings, updateSettings } = useStore();
+  const [cjKey, setCjKey] = useState(settings.cjApiKey || '');
+  const [cjAccess, setCjAccess] = useState(settings.cjAccessToken || '');
   const [status, setStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
 
   useEffect(() => {
     // Initialize cjApi from settings
@@ -320,14 +393,20 @@ function ConnectionsSection() {
         const { apiKey, accessToken } = event.data.payload;
         cjApi.apiKey = apiKey;
         cjApi.accessToken = accessToken;
+        setCjKey(apiKey);
+        setCjAccess(accessToken);
         updateSettings({ cjApiKey: apiKey, cjAccessToken: accessToken, cjConnected: true });
         setStatus('Successfully connected to CJ Dropshipping!');
+        quickLog('✅ Connection received via Quick Connect');
         setTimeout(() => setStatus(null), 3000);
       } else if (event.data?.type === 'CJ_DISCONNECTED') {
         cjApi.accessToken = null;
         cjApi.apiKey = null;
+        setCjKey('');
+        setCjAccess('');
         updateSettings({ cjApiKey: '', cjAccessToken: '', cjConnected: false });
         setStatus('Disconnected from CJ Dropshipping.');
+        quickLog('🔌 Disconnected from CJ Dropshipping');
         setTimeout(() => setStatus(null), 3000);
       }
     };
@@ -336,14 +415,187 @@ function ConnectionsSection() {
     return () => window.removeEventListener('message', handleMessage);
   }, [settings, updateSettings]);
 
+  const quickLog = (msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    setLog(prev => [...prev, `[${time}] ${msg}`]);
+  };
+
+  const handleConnectCJ = async () => {
+    // Client-side Validation
+    if (!cjKey || !cjAccess) {
+      setStatus('err: Please enter both API Key and Access Token');
+      return;
+    }
+
+    if (cjKey.length < 10) {
+      setStatus('err: API Key is too short (min 10 characters)');
+      quickLog('⚠️ Validation Failed: API Key must be at least 10 characters.');
+      return;
+    }
+
+    // JWT structure check (header.payload.signature)
+    // CJ Tokens often have a prefix like "API@...:", so we check the part after the colon or the whole string
+    const tokenPart = cjAccess.includes(':') ? cjAccess.split(':')[1] : cjAccess;
+    const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
+    
+    if (!jwtRegex.test(tokenPart)) {
+      setStatus('err: Invalid Access Token format. It must be a valid JWT.');
+      quickLog('⚠️ Validation Failed: Access Token does not match JWT structure.');
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus('Connecting to CJ...');
+    quickLog('⚡ Manual Connection Started...');
+    
+    try {
+      const response = await cjApi.checkDirectConnection(cjAccess, cjKey);
+      if (response.success) {
+        cjApi.apiKey = cjKey;
+        cjApi.accessToken = cjAccess; // Also set it on the instance
+        updateSettings({ cjApiKey: cjKey, cjAccessToken: cjAccess, cjConnected: true });
+        setStatus('Connected successfully!');
+        quickLog('✅ CJ DROPSHIPPING CONNECTED SUCCESSFULLY!');
+      } else {
+        setStatus('err: ' + response.error);
+        quickLog(`❌ Connection Error: ${response.error}`);
+        updateSettings({ cjConnected: false });
+      }
+    } catch (err: any) {
+      setStatus('err: Connection failed.');
+      quickLog(`❌ Network Error: ${err.message}`);
+    }
+    setIsLoading(false);
+    setTimeout(() => setStatus(null), 3000);
+  };
+
+  const handleDisconnectCJ = () => {
+    if (confirm('Are you sure you want to disconnect?')) {
+      cjApi.accessToken = null;
+      updateSettings({ cjConnected: false, cjAccessToken: '', cjApiKey: '' });
+      setCjKey('');
+      setCjAccess('');
+      setStatus('Disconnected.');
+      quickLog('🔌 Disconnected from CJ');
+      setTimeout(() => setStatus(null), 3000);
+    }
+  };
+
+  const checkConnection = async () => {
+    setStatus('Testing connection...');
+    quickLog('🧪 Testing connection...');
+    try {
+      if (!settings.cjAccessToken) throw new Error('No access token found.');
+      const response = await cjApi.checkDirectConnection(settings.cjAccessToken, settings.cjApiKey);
+      if (response.success) {
+        setStatus('Connection OK');
+        quickLog('✅ Connection is working perfectly!');
+      } else {
+        setStatus('err: ' + response.error);
+        quickLog(`⚠️ Error: ${response.error}`);
+      }
+    } catch(err: any) {
+      setStatus('err: Connection test failed.');
+      quickLog(`❌ Test failed: ${err.message}`);
+    }
+    setTimeout(() => setStatus(null), 3000);
+  };
+
   return (
     <div className="space-y-8 max-w-3xl border border-transparent">
       <div>
         <h2 className="text-3xl font-display font-bold text-white mb-2">Platform Connections</h2>
         <p className="text-gray-400">Configure your dropshipping & payment APIs.</p>
-        {status && (
-          <div className={`mt-4 p-3 rounded font-bold border ${status.startsWith('err:') ? 'bg-[#DC143C]/10 text-[#DC143C] border-[#DC143C]/20' : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'}`}>
-            {status.replace('err: ', '')}
+        <AnimatePresence>
+          {status && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className={`mt-4 p-3 rounded font-bold border ${status.startsWith('err:') ? 'bg-[#DC143C]/10 text-[#DC143C] border-[#DC143C]/20' : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'}`}
+            >
+              {status.replace('err: ', '')}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* CJ Dropshipping Manual Integration */}
+      <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+        <div className="p-6 border-b border-white/5">
+           <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#FF6A00] rounded flex items-center justify-center text-white font-bold">CJ</div>
+                CJ Dropshipping Integration
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${settings.cjConnected ? 'bg-[#50C878] animate-pulse' : 'bg-gray-600'}`} />
+                <span className={`text-xs font-bold uppercase tracking-wider ${settings.cjConnected ? 'text-[#50C878]' : 'text-gray-500'}`}>
+                  {settings.cjConnected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
+           </div>
+           
+           <div className="space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">API Key</label>
+                <input 
+                  type="password" 
+                  value={cjKey}
+                  onChange={e => setCjKey(e.target.value)}
+                  placeholder="Paste your CJ API Key"
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#FF6A00] outline-none" 
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Access Token</label>
+                <textarea 
+                  value={cjAccess}
+                  onChange={e => setCjAccess(e.target.value)}
+                  placeholder="Paste your CJ Access Token"
+                  rows={2}
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#FF6A00] outline-none resize-none" 
+                />
+              </div>
+           </div>
+           
+           <div className="mt-6 flex flex-wrap gap-4">
+             {!settings.cjConnected ? (
+               <button 
+                 onClick={handleConnectCJ}
+                 disabled={isLoading}
+                 className="px-6 py-3 bg-[#FF6A00] text-white font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 disabled:opacity-50"
+               >
+                 {isLoading ? 'Connecting...' : 'Connect to CJ'}
+               </button>
+             ) : (
+               <>
+                 <button 
+                   onClick={checkConnection}
+                   className="px-6 py-3 border border-[#50C878] text-[#50C878] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#50C878]/10"
+                 >
+                   Test Connection
+                 </button>
+                 <button 
+                   onClick={handleDisconnectCJ}
+                   className="px-6 py-3 border border-[#DC143C] text-[#DC143C] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#DC143C]/10"
+                 >
+                   Disconnect
+                 </button>
+               </>
+             )}
+           </div>
+        </div>
+
+        {/* Console/Log Output */}
+        {(log.length > 0 || isLoading) && (
+          <div className="bg-black/50 p-4 font-mono text-xs border-t border-white/5 max-h-40 overflow-y-auto">
+             {log.map((msg, i) => (
+                <div key={i} className={msg.includes('❌') || msg.includes('Error') ? 'text-red-400' : msg.includes('✅') ? 'text-green-400' : 'text-gray-400'}>
+                   {msg}
+                </div>
+             ))}
+             {isLoading && <div className="text-[#FF6A00] animate-pulse">Processing...</div>}
           </div>
         )}
       </div>
@@ -390,19 +642,34 @@ function ConnectionsSection() {
 }
 
 function ProductsSection() {
-  const { products } = useStore();
+  const { products, removeDemoProducts } = useStore();
+  const demoProducts = products.filter(p => p.isDemo);
+  const realProducts = products.filter(p => !p.isDemo);
+
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-display font-bold text-white mb-2">Product Catalog ({products.length})</h2>
-        <p className="text-gray-400">Manage your active products, edit prices, and monitor stock.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-display font-bold text-white mb-2">Product Catalog ({products.length})</h2>
+          <p className="text-gray-400">Manage your active products, edit prices, and monitor stock.</p>
+        </div>
+        {demoProducts.length > 0 && (
+          <button 
+            onClick={removeDemoProducts}
+            className="px-4 py-2 bg-[#DC143C]/10 border border-[#DC143C]/30 text-[#DC143C] text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-[#DC143C]/20 transition-colors"
+          >
+            Clear Demo Data
+          </button>
+        )}
       </div>
+
       <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-gray-500 bg-[#0A0A0A]">
                 <th className="p-4 font-medium">Product</th>
+                <th className="p-4 font-medium">Type</th>
                 <th className="p-4 font-medium">Category</th>
                 <th className="p-4 font-medium">Base Price</th>
                 <th className="p-4 font-medium">Your Price</th>
@@ -410,7 +677,7 @@ function ProductsSection() {
               </tr>
             </thead>
             <tbody>
-              {products.slice(0, 10).map((product) => (
+              {products.slice(0, 50).map((product) => (
                 <tr key={product.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                   <td className="p-4 text-white text-sm">
                     <div className="flex items-center gap-3">
@@ -420,11 +687,20 @@ function ProductsSection() {
                       <span className="truncate max-w-[200px] block">{product.title}</span>
                     </div>
                   </td>
+                  <td className="p-4">
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
+                      product.isDemo 
+                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
+                        : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'
+                    }`}>
+                      {product.isDemo ? 'Demo' : 'Real'}
+                    </span>
+                  </td>
                   <td className="p-4 text-gray-400 text-sm whitespace-nowrap">{product.category}</td>
                   <td className="p-4 text-gray-300 text-sm">${(product.price || product.basePrice || 0).toFixed(2)}</td>
                   <td className="p-4 text-white font-bold">${(product.finalPrice || (product.price || 0) + product.commission).toFixed(2)}</td>
                   <td className="p-4 text-[#50C878] font-bold">
-                    +${product.commission.toFixed(2)}
+                    +${(product.commission || 0).toFixed(2)}
                   </td>
                 </tr>
               ))}
@@ -1035,38 +1311,53 @@ function CJManagementSection() {
 
   const handleFetchProduct = async () => {
     if (!settings.cjConnected || !settings.cjAccessToken) {
-      addLog('Error: Not connected to CJ Dropshipping.');
+      addLog('⚠️ Error: Connection Required. Please link your CJ account in "Connections".');
       return;
     }
     if (!productUrl) return;
 
     cjApi.accessToken = settings.cjAccessToken;
+    cjApi.apiKey = settings.cjApiKey;
     setIsLoading(true);
-    addLog(`Fetching product details...`);
+    addLog(`🔍 Analyzing product path: ${productUrl}...`);
+    
     try {
       const p = await cjApi.getProductByUrl(productUrl);
-      addLog(`Success: Found "${p.productName || 'Product'}"`);
-      // Simulate adding product to showcase functionality
+      addLog(`✨ Success: Identified "${p.productName || p.title || 'Premium Item'}"`);
+      addLog(`⚙️ Processing metadata & images...`);
+      
       const newProduct = {
-         id: `cj-${Math.floor(Math.random() * 10000)}`,
-         title: p.productName || 'CJ Imported Product',
-         description: 'Automatically imported via CJ Dropshipping API integration.',
+         id: `cj-${p.pid || Math.floor(Math.random() * 10000)}`,
+         title: p.productName || p.title || 'CJ Imported Product',
+         description: p.productDescription || 'Automatically imported via CJ Dropshipping API integration.',
          supplier: 'CJ Dropshipping',
-         price: parseFloat(p.sellPrice) || 29.99,
-         basePrice: parseFloat(p.sellPrice) || 19.99,
+         price: parseFloat(p.sellPrice || p.price) || 29.99,
+         basePrice: parseFloat(p.sellPrice || p.price) || 19.99,
          commission: 15.00,
-         finalPrice: (parseFloat(p.sellPrice) || 19.99) + 15.00,
-         stock: 100,
+         finalPrice: (parseFloat(p.sellPrice || p.price) || 19.99) + 15.00,
+         stock: p.productStock || 100,
          rating: 5.0,
          category: p.categoryName || 'General',
-         imageUrl: p.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+         imageUrl: p.productImage || (p.images && p.images[0]) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+         images: p.images || [p.productImage],
          discountEligible: false,
-         isNew: true
+         isNew: true,
+         isDemo: false
       };
+      
       addProduct(newProduct);
-      addLog('Product added to catalog successfully!');
+      addLog('🚀 DEPLOYED: Product is now live in your storefront.');
+      setProductUrl('');
     } catch (err: any) {
-      addLog(`Error: ${err.message}`);
+      const errorMsg = err.message || 'Unknown integration error';
+      addLog(`❌ FAILED: ${errorMsg}`);
+      
+      // Smart AI suggestion
+      if (errorMsg.includes('Interface not found')) {
+        addLog('💡 BOT SUGGESTION: The API endpoint might have shifted. Checking for fallback routes...');
+      } else if (errorMsg.includes('Not authenticated')) {
+        addLog('💡 BOT SUGGESTION: Your Access Token may have expired. Try reconnecting your account.');
+      }
     }
     setIsLoading(false);
   };

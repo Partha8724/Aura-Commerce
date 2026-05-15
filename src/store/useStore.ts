@@ -55,6 +55,7 @@ interface AppState {
   addProduct: (p: Product) => void;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  removeDemoProducts: () => void;
 
   cart: CartItem[];
   addToCart: (p: Product) => void;
@@ -94,13 +95,26 @@ export const useStore = create<AppState>()(
       activeTab: 'home',
       setActiveTab: (tab) => set({ activeTab: tab }),
 
-      products: initialProducts,
-      addProduct: (p) => set((state) => ({ products: [p, ...state.products] })),
+      products: initialProducts.map(p => ({ ...p, isDemo: true })),
+      addProduct: (p) => set((state) => {
+        // If we're adding a real product, and we still have demo products,
+        // we might want to clear them eventually or just add this alongside.
+        // The user asked to remove all demo products when adding real ones.
+        const isReal = !p.id.startsWith('demo-') && p.supplier !== 'DEMO';
+        const updatedProducts = isReal 
+          ? [p, ...state.products.filter(prod => !prod.isDemo)] 
+          : [p, ...state.products];
+        
+        return { products: updatedProducts };
+      }),
       updateProduct: (id, updates) => set((state) => ({
         products: state.products.map(p => p.id === id ? { ...p, ...updates } : p)
       })),
       deleteProduct: (id) => set((state) => ({
         products: state.products.filter(p => p.id !== id)
+      })),
+      removeDemoProducts: () => set((state) => ({
+        products: state.products.filter(p => !p.isDemo)
       })),
 
       cart: [],
@@ -145,9 +159,9 @@ export const useStore = create<AppState>()(
         heroTitle: 'BUILD YOUR AUTOMATED RETAIL EMPIRE',
         heroSubtitle: 'The future of dropshipping is here',
         cjEmail: '',
-        cjApiKey: '',
-        cjAccessToken: '',
-        cjConnected: false,
+        cjApiKey: 'CJ5414189@api@232b557e1821465a8b4e6021391f11cf',
+        cjAccessToken: 'API@CJ5414189@CJ:eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIzNzE5MSIsInR5cGUiOiJBQ0NFU1NfVE9LRU4iLCJzdWIiOiJicUxvYnFRMGxtTm55UXB4UFdMWnlyeHpYMTl2MUU0SkJNU2NzZHJHRkdMTlhvVVZoZUc3cG1BWjlmZmxDendWL3g5b3ZnTTdzRnp2M3dyeHlTRVg3OWc2eVRGQnhuNUVERUVmN0pxak0zUVI1azVBZHNvS2lIMzZrRVYwQ0JEMnFPSnBLaGM0eDIzbWFxTW15MGJzQWFPUGtuNGQxQWZHS1QxLzB1Mit4QXprODFRdXNpejAvaXF0V2tOWFFqYWJ0ekM2a2NGNkt4VExEVkF4YjRKdVRLaFV4TTdRSkRrcE9pdHcyU0pXNjl3eitWRnhnY1YxVEJ4RC95TzBKL0x5UmlqZlNvRWx0NVl5T1lSdlVDd0JmM05JNjVQTHVhbGFWcXMwZ0lyOUdhZz0iLCJpYXQiOjE3Nzg3NzMxOTF9.OLSrUUaPwF0UmLvMBgyvCCy9h06ScVComPUR97ZJ4TM',
+        cjConnected: true,
         adminName: 'Store Admin',
         adminEmail: 'admin@auracommerce.com',
         themeColor: '#D4AF37'

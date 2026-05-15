@@ -71,7 +71,7 @@ export function ProductCard({ product }: ProductCardProps) {
         onClick={() => setSelectedProductId(product.id)}
       >
         <img
-          src={product.images[0]}
+          src={product.images?.[0] || product.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80'}
           alt={product.title}
           className={cn(
             "w-full h-full object-cover transition-all duration-1000 grayscale opacity-70",

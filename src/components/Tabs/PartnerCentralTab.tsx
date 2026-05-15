@@ -7,7 +7,14 @@ import { initialProducts as products } from '../../data/products';
 export function PartnerCentralTab() {
   const { addToCart, setActiveTab } = useStore();
   const [activeSection, setActiveSection] = useState<'products' | 'profile'>('products');
-  const [selectedProduct, setSelectedProduct] = useState(products[0]);
+  const [selectedProduct, setSelectedProduct] = useState(products[0] || {
+    id: 'default',
+    title: 'Featured Aura Product',
+    price: 0,
+    finalPrice: 0,
+    imageUrl: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=1600&q=80',
+    supplier: 'AURA'
+  });
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [address, setAddress] = useState({
     street: '123 Golden Avenue',
