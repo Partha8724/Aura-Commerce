@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ChevronRight, Zap, Target, Globe } from 'lucide-react';
-import { mockProducts } from '../data/mockProducts';
+import { useStore } from '../store/useStore';
 
 export function Hero() {
+  const { products } = useStore();
   const [textIndex, setTextIndex] = useState(0);
   const titles = ["Where AI Meets Profit", "The Future of Retail", "Automated Commerce"];
   const [stats, setStats] = useState({ deals: 1420, profit: 89 });
@@ -36,7 +37,7 @@ export function Hero() {
     return () => clearInterval(statsInterval);
   }, []);
 
-  const heroProduct = mockProducts[0] || {
+  const heroProduct = products[0] || {
     id: 'default',
     title: 'Aura Premium Product',
     supplier: 'AURA',

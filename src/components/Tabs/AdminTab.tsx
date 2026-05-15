@@ -22,8 +22,8 @@ function BotAssistant() {
       setMessage("Hello! I'm Aura. You're currently in Demo Mode. Connect your CJ account to start importing real products!");
     } else if (settings.cjConnected && realProductsCount === 0) {
       setMessage("Excellent! Your CJ account is linked. Now, go to 'CJ Management' and paste a product URL to import your first real item.");
-    } else if (realProductsCount > 0 && demoProductsCount > 0) {
-      setMessage(`Great choice! You have ${realProductsCount} real products. I've automatically archived the demo products to keep your store clean.`);
+    } else if (realProductsCount > 0) {
+      setMessage(`Business is booming! You have ${realProductsCount} real products. I've archived all demo data to focus on your real revenue.`);
     } else {
       setMessage("Your empire is growing. I'm monitoring your store for any price changes or order updates.");
     }
@@ -224,7 +224,7 @@ function DashboardSection({ stats }: { stats: any }) {
 }
 
 function BotsSection() {
-  const { addProduct, botLogs, addBotLog } = useStore();
+  const { products, addProduct, botLogs, addBotLog } = useStore();
   const [demoUrl, setDemoUrl] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [margin, setMargin] = useState('15');
@@ -248,14 +248,17 @@ function BotsSection() {
          category: 'Electronics',
          imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
          discountEligible: true,
-         isNew: true
+         isNew: true,
+         isDemo: false
       };
       
+      const hasDemos = products.some(p => p.isDemo);
       addProduct(newProduct);
+      
       addBotLog({
         id: Math.random().toString(),
         bot: 'Auto Import',
-        message: `Successfully imported: ${newProduct.title}`,
+        message: `Successfully imported: ${newProduct.title}${hasDemos ? '. purging demo products...' : ''}`,
         date: new Date().toLocaleTimeString(),
         type: 'success'
       });
@@ -1301,7 +1304,7 @@ function AccountSection() {
 }
 
 function CJManagementSection() {
-  const { settings, addProduct } = useStore();
+  const { products, settings, addProduct } = useStore();
   const [productUrl, setProductUrl] = useState('');
   const [orderId, setOrderId] = useState('');
   const [log, setLog] = useState<string[]>([]);
@@ -1345,8 +1348,9 @@ function CJManagementSection() {
          isDemo: false
       };
       
+      const hasDemos = products.some(p => p.isDemo);
       addProduct(newProduct);
-      addLog('🚀 DEPLOYED: Product is now live in your storefront.');
+      addLog(`🚀 DEPLOYED: Product is now live in your storefront.${hasDemos ? ' Demo products have been purged.' : ''}`);
       setProductUrl('');
     } catch (err: any) {
       const errorMsg = err.message || 'Unknown integration error';
