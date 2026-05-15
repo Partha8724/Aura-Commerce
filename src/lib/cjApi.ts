@@ -94,13 +94,22 @@ export class CJDropshippingAPI {
     const data = await response.json();
     if (data.code === 200) {
       if (pidMatch) return data.data;
-      if (data.data.list && data.data.list.length > 0) return data.data.list[0];
-      throw new Error('No products found matching that criteria.');
+      if (data.data && data.data.list && data.data.list.length > 0) return data.data.list[0];
+      throw new Error('No products found matching that criteria. Please check the URL.');
     }
     
-    // Better error mapping
-    if (data.code === 1600101) throw new Error('API Interface not found. The endpoint path might be updated or incorrect.');
-    throw new Error(data.message || `CJ Error (${data.code}): Failed to fetch product`);
+    // Comprehensive Error Mappings for "Best error handler"
+    const errorMap: Record<number, string> = {
+      1600101: 'API Interface not found. The endpoint path might have shifted or is legacy.',
+      1600001: 'Access Token is invalid or has expired. Please refresh your credentials.',
+      1600005: 'API Key mismatch or invalid. Check your CJ Dashboard settings.',
+      1600200: 'Rate limited by CJ. Please wait 60 seconds before next request.',
+      1690001: 'System error at CJ Dropshipping backend. Please try again later.',
+      1600102: 'The requested product is off-shelf or no longer available.',
+      1600103: 'Invalid parameters sent to CJ. URL extraction might have failed.'
+    };
+
+    throw new Error(errorMap[data.code] || data.message || `CJ Error (${data.code}): Operation failed.`);
   }
 
   async getTracking(orderId: string) {

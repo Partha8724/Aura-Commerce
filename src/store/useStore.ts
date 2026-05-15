@@ -97,13 +97,18 @@ export const useStore = create<AppState>()(
 
       products: initialProducts.map(p => ({ ...p, isDemo: true })),
       addProduct: (p) => set((state) => {
-        // If we're adding a real product, and we still have demo products,
-        // we might want to clear them eventually or just add this alongside.
-        // The user asked to remove all demo products when adding real ones.
-        const isReal = !p.id.startsWith('demo-') && p.supplier !== 'DEMO';
-        const updatedProducts = isReal 
-          ? [p, ...state.products.filter(prod => !prod.isDemo)] 
-          : [p, ...state.products];
+        // Automatically remove ALL demo products when the FIRST real product is added
+        const isReal = !p.isDemo;
+        const hasDemos = state.products.some(prod => prod.isDemo);
+        
+        let updatedProducts;
+        if (isReal && hasDemos) {
+          // Keep the new real product and filter out all demos
+          updatedProducts = [p, ...state.products.filter(prod => !prod.isDemo)];
+        } else {
+          // Just add it (if it's another real one or another demo one)
+          updatedProducts = [p, ...state.products];
+        }
         
         return { products: updatedProducts };
       }),
