@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Montserrat:wght@100;200;300;400;500;600;700;800;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0A0A0A;
+  --color-foreground: #ffffff;
+  --color-muted: #141414;
+  --color-muted-foreground: #888888;
+  --color-border: #222222;
+  --color-accent: #D4AF37;
+  --color-accent-foreground: #000000;
+
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-display: "Cinzel", ui-serif, Georgia, serif;
+  --font-special: "Cormorant Garamond", ui-serif, Georgia, serif;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 2rem;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 60%;
+    --border: 0 0% 15%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+  }
+  .glass-hover {
+    @apply hover:bg-white/5 transition-colors duration-300;
+  }
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-300 to-gray-500;
+  }
+  .gold-gradient {
+    @apply bg-gradient-to-br from-[#BF953F] via-[#FCF6B5] to-[#B38728];
+  }
+  .gold-text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-[#BF953F] via-[#FCF6B5] to-[#B38728];
+  }
+  .gold-text-shadow {
+    text-shadow: 0 0 20px rgba(212,175,55,0.6), 0 0 40px rgba(212,175,55,0.4), 0 0 80px rgba(212,175,55,0.2);
+  }
+  .gold-box-shadow {
+    box-shadow: 0 0 30px rgba(212,175,55,0.3), 0 0 60px rgba(212,175,55,0.1);
+  }
+  .metallic-gold {
+    background: linear-gradient(180deg, #D4AF37 0%, #F4D03F 25%, #B8960C 50%, #D4AF37 75%, #AA771C 100%);
+  }
+  .metallic-gold-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(180deg, #D4AF37 0%, #F4D03F 25%, #B8960C 50%, #D4AF37 75%, #AA771C 100%);
+  }
+  .transform-style-3d {
+    transform-style: preserve-3d;
+  }
+}
+
+/* Hide scrollbar for a cleaner look */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: black;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

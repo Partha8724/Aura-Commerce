@@ -1,0 +1,6 @@
+{
+  "name": "AURA COMMERCE",
+  "description": "The Future of Automated Retail - A luxury AI-powered dropshipping platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CJ Dropshipping - Quick Connect</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Montserrat:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      background: #0A0A0A; 
+      color: #FFFFFF; 
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .cj-connect-container {
+      background: #1A1A1A;
+      border: 2px solid #D4AF37;
+      border-radius: 20px;
+      padding: 35px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 0 40px rgba(212,175,55,0.15);
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    
+    .header .icon {
+      font-size: 55px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    
+    .header h2 {
+      font-family: 'Cinzel', serif;
+      color: #D4AF37;
+      font-size: 24px;
+      margin-bottom: 8px;
+      text-shadow: 0 0 20px rgba(212,175,55,0.4);
+    }
+    
+    .header p {
+      color: #C0C0C0;
+      font-size: 14px;
+      font-weight: 300;
+    }
+    
+    .status-box {
+      background: #0A0A0A;
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      margin-bottom: 25px;
+      border: 1px solid #333;
+    }
+    
+    .status-box .dot {
+      font-size: 24px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    
+    .status-box .text {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    
+    .status-box .expiry {
+      display: block;
+      color: #888;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    
+    .input-group {
+      margin-bottom: 18px;
+    }
+    
+    .input-group label {
+      display: block;
+      color: #D4AF37;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .input-group input,
+    .input-group textarea {
+      width: 100%;
+      padding: 14px;
+      background: #0A0A0A;
+      color: #FFFFFF;
+      border: 1px solid #444;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.3s;
+    }
+    
+    .input-group input:focus,
+    .input-group textarea:focus {
+      outline: none;
+      border-color: #D4AF37;
+      box-shadow: 0 0 15px rgba(212,175,55,0.2);
+    }
+    
+    .input-group input:disabled,
+    .input-group textarea:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .input-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .btn-connect {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #B8960C, #F4D03F, #B8960C);
+      color: #0A0A0A;
+      border: none;
+      border-radius: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Cinzel', serif;
+      letter-spacing: 2px;
+      transition: all 0.3s;
+      box-shadow: 0 4px 20px rgba(212,175,55,0.3);
+    }
+    
+    .btn-connect:hover {
+      box-shadow: 0 6px 30px rgba(212,175,55,0.5);
+      transform: translateY(-2px);
+    }
+    
+    .btn-connect:active {
+      transform: translateY(0);
+    }
+    
+    .btn-connect:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-disconnect {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: #DC143C;
+      border: 1px solid #DC143C;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      margin-top: 10px;
+      display: none;
+      transition: all 0.3s;
+    }
+    
+    .btn-disconnect:hover {
+      background: rgba(220,20,60,0.1);
+    }
+    
+    .btn-test {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: #D4AF37;
+      border: 1px solid #D4AF37;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Montserrat', sans-serif;
+      margin-top: 10px;
+      display: none;
+      transition: all 0.3s;
+    }
+    
+    .btn-test:hover {
+      background: rgba(212,175,55,0.1);
+    }
+    
+    .log-box {
+      margin-top: 18px;
+      padding: 14px;
+      background: #000000;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #50C878;
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      border: 1px solid #333;
+      line-height: 1.6;
+    }
+    
+    .log-box .log-entry {
+      margin-bottom: 1px;
+    }
+    
+    .log-box .log-error {
+      color: #DC143C;
+    }
+    
+    .log-box .log-warning {
+      color: #FF8C00;
+    }
+    
+    .log-box .log-info {
+      color: #00BFFF;
+    }
+    
+    .help-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #0A0A0A;
+      border-radius: 8px;
+      border-left: 3px solid #D4AF37;
+    }
+    
+    .help-box h4 {
+      color: #D4AF37;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .help-box ol {
+      color: #C0C0C0;
+      font-size: 12px;
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+    
+    .help-box a {
+      color: #D4AF37;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+<div class="cj-connect-container">
+  
+  <!-- Header -->
+  <div class="header">
+    <span class="icon">🔗</span>
+    <h2>CJ Dropshipping Quick Connect</h2>
+    <p>Paste your API Key and Access Token to connect instantly</p>
+  </div>
+
+  <!-- Status -->
+  <div class="status-box">
+    <span class="dot" id="statusDot">🔴</span>
+    <span class="text" id="statusText" style="color: #C0C0C0;">Not Connected</span>
+    <span class="expiry" id="tokenExpiry"></span>
+  </div>
+
+  <!-- API Key -->
+  <div class="input-group">
+    <label>CJ API Key</label>
+    <input type="text" id="apiKeyInput" placeholder="Paste your CJ API Key here...">
+  </div>
+
+  <!-- Access Token -->
+  <div class="input-group">
+    <label>CJ Access Token</label>
+    <textarea id="tokenInput" placeholder="Paste your CJ Access Token here..."></textarea>
+  </div>
+
+  <!-- Consent Checkbox -->
+  <div class="input-group" style="display: flex; align-items: flex-start; gap: 10px; background: #0A0A0A; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 25px;">
+    <input type="checkbox" id="consentCheckbox" style="width: 20px; height: 20px; cursor: pointer; margin-top: 2px;" onchange="toggleConnectBtn()">
+    <label for="consentCheckbox" style="text-transform: none; font-size: 13px; color: #C0C0C0; font-weight: 400; cursor: pointer; letter-spacing: normal;">
+      I authorize <strong>Aura Commerce</strong> to access my CJ Dropshipping account. I understand that this integration will allow the app to fetch products and tracking info on my behalf.
+    </label>
+  </div>
+
+  <!-- Connect Button -->
+  <button class="btn-connect" id="btnConnect" onclick="connectToCJ()" disabled style="opacity: 0.5;">
+    ⚡ CONNECT INSTANTLY
+  </button>
+
+  <!-- Disconnect Button -->
+  <button class="btn-disconnect" id="btnDisconnect" onclick="disconnectFromCJ()">
+    🔌 Disconnect from CJ Dropshipping
+  </button>
+
+  <!-- Test Button -->
+  <button class="btn-test" id="btnTest" onclick="testConnection()">
+    🧪 Test Connection
+  </button>
+
+  <!-- Log -->
+  <div class="log-box" id="logBox"></div>
+
+  <!-- Congrats Overlay -->
+  <div id="congratsSection" style="display:none; text-align:center; padding:20px; background:rgba(80,200,120,0.1); border:1px solid #50C878; border-radius:12px; margin-top:20px;">
+    <h3 style="color:#50C878; font-family:'Cinzel', serif; margin-bottom:10px;">🎉 CONGRATULATIONS!</h3>
+    <p style="font-size:14px; color:#ddd;">Your store is now fully linked with CJ Dropshipping. Automation is active.</p>
+  </div>
+
+  <!-- Help -->
+  <div class="help-box">
+    <h4>📌 How to get your CJ credentials:</h4>
+    <ol>
+      <li>Go to <a href="https://www.cjdropshipping.com" target="_blank">cjdropshipping.com</a> and log in</li>
+      <li>Navigate to <strong>Settings → API Settings</strong></li>
+      <li>Copy your <strong>API Key</strong></li>
+      <li>Generate or copy your <strong>Access Token</strong></li>
+      <li>Paste both above and click <strong>Connect Instantly</strong></li>
+    </ol>
+    <h4 style="margin-top:15px; border-top:1px solid #333; pt-2">❌ Still not connecting?</h4>
+    <p style="color: #888; font-size: 11px; line-height: 1.6;">
+      • Ensure your account is <strong>verified</strong>.<br>
+      • Check if API V2.0 is active in your CJ account.<br>
+      • If error persists, try <strong>Regenerating</strong> your Access Token.<br>
+      • Ensure you have copied the <strong>entire</strong> long token string.
+    </p>
+  </div>
+
+</div>
+
+<script>
+// ============================================
+// CJ DROPSHIPPING QUICK CONNECT - FULLY WORKING
+// ============================================
+
+const CJ_BASE_URL = '/api/cj-proxy';
+
+// Get DOM elements
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const tokenExpiry = document.getElementById('tokenExpiry');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const tokenInput = document.getElementById('tokenInput');
+const btnConnect = document.getElementById('btnConnect');
+const btnDisconnect = document.getElementById('btnDisconnect');
+const btnTest = document.getElementById('btnTest');
+const logBox = document.getElementById('logBox');
+const congratsSection = document.getElementById('congratsSection');
+const consentCheckbox = document.getElementById('consentCheckbox');
+
+function toggleConnectBtn() {
+  btnConnect.disabled = !consentCheckbox.checked;
+  btnConnect.style.opacity = consentCheckbox.checked ? '1' : '0.5';
+}
+
+// Log function
+function log(message, type) {
+  logBox.style.display = 'block';
+  var time = new Date().toLocaleTimeString();
+  var cssClass = 'log-entry';
+  if (type === 'error') cssClass += ' log-error';
+  if (type === 'warning') cssClass += ' log-warning';
+  if (type === 'info') cssClass += ' log-info';
+  logBox.innerHTML += '<div class="' + cssClass + '">[' + time + '] ' + message + '</div>';
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+// Update UI
+function updateUI(connected) {
+  if (connected) {
+    statusDot.textContent = '🟢';
+    statusText.textContent = 'Connected to CJ Dropshipping';
+    statusText.style.color = '#50C878';
+    btnConnect.style.display = 'none';
+    btnDisconnect.style.display = 'block';
+    btnTest.style.display = 'block';
+    apiKeyInput.disabled = true;
+    tokenInput.disabled = true;
+    apiKeyInput.style.opacity = '0.5';
+    tokenInput.style.opacity = '0.5';
+    
+    var expiry = localStorage.getItem('cj_token_expiry');
+    if (expiry) {
+      tokenExpiry.textContent = 'Token expires: ' + new Date(expiry).toLocaleString();
+    }
+  } else {
+    statusDot.textContent = '🔴';
+    statusText.textContent = 'Not Connected';
+    statusText.style.color = '#C0C0C0';
+    btnConnect.style.display = 'block';
+    btnDisconnect.style.display = 'none';
+    btnTest.style.display = 'none';
+    apiKeyInput.disabled = false;
+    tokenInput.disabled = false;
+    apiKeyInput.style.opacity = '1';
+    tokenInput.style.opacity = '1';
+    tokenExpiry.textContent = '';
+    congratsSection.style.display = 'none';
+    consentCheckbox.checked = false;
+    toggleConnectBtn();
+  }
+}
+
+// CONNECT FUNCTION
+async function connectToCJ() {
+  var apiKey = apiKeyInput.value.trim();
+  var accessToken = tokenInput.value.trim();
+  
+  // Validate
+  if (!apiKey) {
+    alert('Please paste your CJ API Key');
+    apiKeyInput.focus();
+    return;
+  }
+  
+  if (!accessToken) {
+    alert('Please paste your CJ Access Token');
+    tokenInput.focus();
+    return;
+  }
+  
+  if (accessToken.length < 20) {
+    alert('Access Token seems too short. Please check and paste the full token.');
+    return;
+  }
+  
+  // Clear log
+  logBox.innerHTML = '';
+  logBox.style.display = 'block';
+  congratsSection.style.display = 'none';
+  
+  log('⚡ Starting Quick Connect (Proxy Mode)...', 'info');
+  log('📋 API Key: ' + apiKey.substring(0, 15) + '...');
+  log('🔑 Token: ' + accessToken.substring(0, 25) + '...');
+  
+  // Disable button
+  btnConnect.disabled = true;
+  btnConnect.textContent = '⏳ CONNECTING...';
+  
+  try {
+    log('📡 Calling CJ API via local proxy...', 'info');
+    
+    // REAL API CALL TO CJ (via proxy to avoid CORS)
+    var response = await fetch(CJ_BASE_URL + '/commodity/getCategory', {
+      method: 'GET',
+      headers: {
+        'CJ-Access-Token': accessToken,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Proxy error: ' + response.status);
+    
+    var data = await response.json();
+    log('📦 Response code from CJ: ' + data.code);
+    
+    // Check response
+    if (data.code === 200) {
+      log('✅ Connection SUCCESSFUL!', 'info');
+      
+      // Confetti!
+      try {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#D4AF37', '#FFFFFF', '#50C878']
+        });
+      } catch (e) {}
+
+      // SAVE TO LOCALSTORAGE
+      localStorage.setItem('cj_api_key', apiKey);
+      localStorage.setItem('cj_access_token', accessToken);
+      localStorage.setItem('cj_connected', 'true');
+      localStorage.setItem('cj_token_expiry', new Date(Date.now() + 86400000).toISOString());
+      
+      log('💾 Credentials saved locally');
+      
+      // ... Supabase logic ...
+      
+      updateUI(true);
+      congratsSection.style.display = 'block';
+      log('🎉 CJ DROPSHIPPING CONNECTED SUCCESSFULLY!');
+      
+      // Notify parent React app
+      window.parent.postMessage({
+        type: 'CJ_CONNECTED',
+        payload: {
+          apiKey: apiKey,
+          accessToken: accessToken
+        }
+      }, '*');
+      
+      // Removed the alert as we have a UI congratulation now
+      
+    } else if (data.code === 1600001) {
+      log('❌ Error 1600001: Invalid or expired Access Token', 'error');
+      log('💡 Go to CJ Settings → API → Regenerate Token', 'warning');
+      updateUI(false);
+      alert('Invalid or expired Access Token. Please generate a new one from CJ Settings.');
+      
+    } else if (data.code === 1600005) {
+      log('❌ Error 1600005: Invalid API Key', 'error');
+      log('💡 Check your API Key in CJ Settings → API', 'warning');
+      updateUI(false);
+      alert('Invalid API Key. Please check and try again.');
+      
+    } else if (data.code === 1600002) {
+      log('❌ Error 1600002: Access token cannot be empty', 'error');
+      updateUI(false);
+      
+    } else if (data.code === 1600004) {
+      log('❌ Error 1600004: Authorization failed', 'error');
+      log('💡 Verify your CJ account is active', 'warning');
+      updateUI(false);
+      alert('Authorization failed. Please verify your CJ account is active.');
+      
+    } else if (data.code === 1600200) {
+      log('⚠️ Error 1600200: Too many requests', 'warning');
+      log('💡 Wait 1-2 minutes and try again', 'warning');
+      updateUI(false);
+      alert('Too many requests. Please wait a moment and try again.');
+      
+    } else {
+      log('⚠️ Unexpected response: ' + JSON.stringify(data).substring(0, 200), 'warning');
+      updateUI(false);
+      alert('Unexpected response from CJ. Code: ' + data.code);
+    }
+    
+  } catch (error) {
+    log('❌ Connection error: ' + error.message, 'error');
+    log('💡 Check your internet connection', 'warning');
+    updateUI(false);
+    alert('Connection failed: ' + error.message);
+  }
+  
+  // Re-enable button
+  btnConnect.disabled = false;
+  btnConnect.textContent = '⚡ CONNECT INSTANTLY';
+}
+
+// DISCONNECT FUNCTION
+function disconnectFromCJ() {
+  if (!confirm('Are you sure you want to disconnect from CJ Dropshipping?')) return;
+  
+  // Clear localStorage
+  localStorage.removeItem('cj_api_key');
+  localStorage.removeItem('cj_access_token');
+  localStorage.removeItem('cj_connected');
+  localStorage.removeItem('cj_token_expiry');
+  
+  // Clear inputs
+  apiKeyInput.value = '';
+  tokenInput.value = '';
+  
+  // Update UI
+  updateUI(false);
+  
+  // Show log
+  logBox.style.display = 'block';
+  log('🔌 Disconnected from CJ Dropshipping');
+
+  window.parent.postMessage({ type: 'CJ_DISCONNECTED' }, '*');
+}
+
+// TEST CONNECTION FUNCTION
+async function testConnection() {
+  logBox.innerHTML = '';
+  logBox.style.display = 'block';
+  log('🧪 Testing connection...', 'info');
+  
+  // Get token from localStorage or input
+  var token = localStorage.getItem('cj_access_token') || tokenInput.value.trim();
+  
+  if (!token) {
+    log('❌ No access token found. Please connect first.', 'error');
+    updateUI(false);
+    return;
+  }
+  
+  try {
+    var response = await fetch(CJ_BASE_URL + '/commodity/getCategory', {
+      method: 'GET',
+      headers: {
+        'CJ-Access-Token': token,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    var data = await response.json();
+    
+    if (data.code === 200) {
+      log('✅ Connection is WORKING PERFECTLY!', 'info');
+      log('📂 CJ API is responding with valid data');
+    } else if (data.code === 1600001) {
+      log('⚠️ Token has EXPIRED', 'warning');
+      log('💡 Please reconnect with a new token', 'warning');
+      updateUI(false);
+    } else {
+      log('⚠️ Response code: ' + data.code, 'warning');
+    }
+  } catch (error) {
+    log('❌ Test failed: ' + error.message, 'error');
+    updateUI(false);
+  }
+}
+
+// LOAD SAVED CONNECTION ON PAGE LOAD
+function loadSavedConnection() {
+  var savedToken = localStorage.getItem('cj_access_token');
+  var savedApiKey = localStorage.getItem('cj_api_key');
+  var isConnected = localStorage.getItem('cj_connected') === 'true';
+  
+  if (isConnected && savedToken) {
+    // Restore inputs
+    if (savedApiKey) apiKeyInput.value = savedApiKey;
+    tokenInput.value = savedToken;
+    
+    // Update UI
+    updateUI(true);
+    
+    // Quick verify in background
+    setTimeout(function() {
+      testConnection();
+    }, 500);
+  } else {
+    updateUI(false);
+  }
+}
+
+// RUN ON PAGE LOAD
+loadSavedConnection();
+
+console.log('✅ CJ Quick Connect system loaded and ready.');
+console.log('📋 All functions available: connectToCJ(), disconnectFromCJ(), testConnection()');
+</script>
+
+</body>
+</html>
