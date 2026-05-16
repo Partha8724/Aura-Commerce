@@ -224,14 +224,94 @@ function DashboardSection({ stats }: { stats: any }) {
 }
 
 function BotsSection() {
-  const { products, addProduct, botLogs, addBotLog } = useStore();
+  const { products, addProduct, botLogs, addBotLog, settings } = useStore();
   const [demoUrl, setDemoUrl] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [margin, setMargin] = useState('15');
 
-  const handleImport = () => {
-    if (!demoUrl) return;
+  const handleImport = async () => {
+    // If not connected and no URL, we can't do anything
     setImportStatus('connecting');
+    
+    // Auto sync from CJ Dropshipping if connected and no specific URL is provided
+    if (settings.cjConnected && !demoUrl) {
+      addBotLog({
+        id: Math.random().toString(),
+        bot: 'Auto Import',
+        message: 'Starting automatic synchronization with CJ Dropshipping...',
+        date: new Date().toLocaleTimeString(),
+        type: 'info'
+      });
+
+      try {
+        if (settings.cjAccessToken) cjApi.accessToken = settings.cjAccessToken;
+        if (settings.cjApiKey) cjApi.apiKey = settings.cjApiKey;
+        const productsList = await cjApi.getProducts(1, 15);
+        if (productsList && productsList.length > 0) {
+          productsList.forEach((prod: any, index: number) => {
+            const hasDemos = products.some(p => p.isDemo);
+            
+            // Generate product
+            const newProduct = {
+               id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
+               title: prod.productNameEn || prod.productName || 'CJ Product',
+               description: prod.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
+               supplier: 'CJ Dropshipping',
+               price: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
+               basePrice: parseFloat(prod.sellPrice || 0),
+               commission: parseFloat(margin),
+               finalPrice: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
+               stock: 999,
+               rating: 4.5 + Math.random() * 0.5,
+               category: prod.categoryName || 'General',
+               imageUrl: prod.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+               discountEligible: true,
+               isNew: true,
+               isDemo: false
+            };
+            
+            setTimeout(() => {
+                addProduct(newProduct);
+                addBotLog({
+                  id: Math.random().toString(),
+                  bot: 'Auto Import',
+                  message: `Imported ${newProduct.title} (+${margin} margin)`,
+                  date: new Date().toLocaleTimeString(),
+                  type: 'success'
+                });
+            }, index * 200); // Staggered import
+          });
+          
+          setImportStatus('success');
+          setTimeout(() => setImportStatus(null), 3000);
+          return;
+        }
+      } catch (err: any) {
+         addBotLog({
+            id: Math.random().toString(),
+            bot: 'Auto Import',
+            message: `Auto-sync failed: ${err.message}`,
+            date: new Date().toLocaleTimeString(),
+            type: 'error'
+         });
+         setImportStatus(null);
+         return;
+      }
+    }
+
+    if (!demoUrl && !settings.cjConnected) {
+       addBotLog({
+            id: Math.random().toString(),
+            bot: 'Auto Import',
+            message: `Please connect CJ Dropshipping first or paste a specific URL.`,
+            date: new Date().toLocaleTimeString(),
+            type: 'error'
+       });
+       setImportStatus(null);
+       return;
+    }
+
+    // Manual single product mock logic fallback
     setTimeout(() => {
       // Mock creating a product
       const newProduct = {
@@ -239,10 +319,10 @@ function BotsSection() {
          title: `Imported Product from ${demoUrl.includes('aliexpress') ? 'AliExpress' : 'CJ Dropshipping'}`,
          description: 'Automatically imported description with high-converting AI copywriting.',
          supplier: demoUrl.includes('aliexpress') ? 'AliExpress' : 'CJ Dropshipping',
-         price: 24.99,
-         basePrice: 19.99,
+         price: 24.99 + parseFloat(margin),
+         basePrice: 24.99,
          commission: parseFloat(margin),
-         finalPrice: 19.99 + parseFloat(margin),
+         finalPrice: 24.99 + parseFloat(margin),
          stock: 120,
          rating: 4.8,
          category: 'Electronics',
@@ -293,7 +373,7 @@ function BotsSection() {
           <div className="space-y-4 mb-6 flex-1">
             <input 
               type="text" 
-              placeholder="Paste CJ Dropshipping or AliExpress URL..."
+              placeholder={settings.cjConnected ? "Leave blank to Auto-Sync, or paste URL..." : "Paste CJ Dropshipping or AliExpress URL..."}
               value={demoUrl}
               onChange={(e) => setDemoUrl(e.target.value)}
               className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none"
@@ -313,10 +393,10 @@ function BotsSection() {
 
           <button 
             onClick={handleImport}
-            disabled={importStatus !== null || !demoUrl}
+            disabled={importStatus !== null || (!demoUrl && !settings.cjConnected)}
             className="w-full py-4 gold-gradient text-black font-bold uppercase tracking-widest text-sm rounded-xl disabled:opacity-50"
           >
-            {importStatus === 'connecting' ? 'Importing...' : importStatus === 'success' ? 'Product Live!' : 'Import Product'}
+            {importStatus === 'connecting' ? 'Importing...' : importStatus === 'success' ? 'Product Live!' : (settings.cjConnected && !demoUrl) ? 'Auto-Sync Dropship Products' : 'Import Product'}
           </button>
         </div>
 

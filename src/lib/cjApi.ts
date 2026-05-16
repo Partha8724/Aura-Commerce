@@ -123,6 +123,23 @@ export class CJDropshippingAPI {
     throw new Error(errorMap[data.code] || data.message || `CJ Error (${data.code}): Operation failed.`);
   }
 
+  async getProducts(pageNum: number = 1, pageSize: number = 20) {
+    // According to CJ Dropshipping API docs, /product/list is typically GET with query Params.
+    // We already used POST in our code for name searches, let's try it as GET for proper list.
+    // Actually wait, let's just use POST since the proxy might forward it as is, or we use GET query string.
+    const response = await fetch(`${this.baseURL}/product/list?pageNum=${pageNum}&pageSize=${pageSize}`, {
+      method: 'GET',
+      headers: {
+        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
+        ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await response.json();
+    if (data.code === 200) return data.data?.list || [];
+    throw new Error(data.message || 'Failed to fetch products list.');
+  }
+
   async getTracking(orderId: string) {
     const response = await fetch(`${this.baseURL}/order/getTrackingDetail?orderId=${orderId}`, {
       method: 'GET',

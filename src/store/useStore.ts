@@ -95,22 +95,9 @@ export const useStore = create<AppState>()(
       activeTab: 'home',
       setActiveTab: (tab) => set({ activeTab: tab }),
 
-      products: initialProducts.map(p => ({ ...p, isDemo: true })),
+      products: [],
       addProduct: (p) => set((state) => {
-        // Automatically remove ALL demo products when the FIRST real product is added
-        const isReal = !p.isDemo;
-        const hasDemos = state.products.some(prod => prod.isDemo);
-        
-        let updatedProducts;
-        if (isReal && hasDemos) {
-          // Keep the new real product and filter out all demos
-          updatedProducts = [p, ...state.products.filter(prod => !prod.isDemo)];
-        } else {
-          // Just add it (if it's another real one or another demo one)
-          updatedProducts = [p, ...state.products];
-        }
-        
-        return { products: updatedProducts };
+        return { products: [p, ...state.products] };
       }),
       updateProduct: (id, updates) => set((state) => ({
         products: state.products.map(p => p.id === id ? { ...p, ...updates } : p)
@@ -138,17 +125,13 @@ export const useStore = create<AppState>()(
       })),
       clearCart: () => set({ cart: [] }),
 
-      orders: [
-        { id: '#ORD-9021', customerName: 'Alice Johnson', email: 'alice@example.com', total: 145.00, commissionEarned: 29.00, status: 'Processing', items: [], date: 'Today at 2:34 PM', supplier: 'CJ Dropshipping' },
-        { id: '#ORD-9020', customerName: 'Robert Smith', email: 'robert@example.com', total: 89.50, commissionEarned: 15.50, status: 'Completed', items: [], date: 'Today at 11:15 AM', supplier: 'AliExpress' },
-        { id: '#ORD-9019', customerName: 'Emma Davis', email: 'emma@example.com', total: 210.00, commissionEarned: 45.00, status: 'Completed', items: [], date: 'Yesterday', supplier: 'Custom Supplier' }
-      ],
+      orders: [],
       addOrder: (o) => set((state) => ({ orders: [o, ...state.orders] })),
       updateOrderStatus: (id, status, tracking) => set((state) => ({
         orders: state.orders.map(o => o.id === id ? { ...o, status, trackingNumber: tracking || o.trackingNumber } : o)
       })),
 
-      stats: { revenue: 124567, orders: 3891, commissions: 38942 },
+      stats: { revenue: 0, orders: 0, commissions: 0 },
       addStats: (rev, comm) => set((state) => ({
         stats: {
           revenue: state.stats.revenue + rev,
@@ -173,22 +156,17 @@ export const useStore = create<AppState>()(
       },
       updateSettings: (updates) => set((state) => ({ settings: { ...state.settings, ...updates } })),
 
-      payouts: [
-        { id: 'PAY-1001', date: '2023-10-12', amount: 1250, method: 'PayPal', status: 'Completed' },
-        { id: 'PAY-1002', date: '2023-11-20', amount: 3400, method: 'PayPal', status: 'Completed' }
-      ],
+      payouts: [],
       addPayout: (p) => set((state) => ({ payouts: [p, ...state.payouts] })),
 
-      botLogs: [
-        { id: '1', bot: 'Price Scanner', message: 'Scanned 145 items. 2 price changes detected.', date: '10 mins ago', type: 'info' }
-      ],
+      botLogs: [],
       addBotLog: (log) => set((state) => ({ botLogs: [log, ...state.botLogs] })),
       
       selectedProductId: null,
       setSelectedProductId: (id) => set({ selectedProductId: id })
     }),
     {
-      name: 'aura-commerce-storage',
+      name: 'aura-commerce-storage-v2',
     }
   )
 );
