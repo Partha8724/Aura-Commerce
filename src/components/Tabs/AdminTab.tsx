@@ -385,6 +385,16 @@ function ConnectionsSection() {
   const [log, setLog] = useState<string[]>([]);
 
   useEffect(() => {
+    // Check if server already has keys
+    const detect = async () => {
+      const hasKeys = await cjApi.detectConnection();
+      if (hasKeys && !settings.cjConnected) {
+        updateSettings({ cjConnected: true });
+        quickLog('🛡️ Secure Server Connection Detected');
+      }
+    };
+    detect();
+
     // Initialize cjApi from settings
     if (settings.cjAccessToken) {
       cjApi.accessToken = settings.cjAccessToken;
@@ -1313,14 +1323,14 @@ function CJManagementSection() {
   const addLog = (msg: string) => setLog(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
   const handleFetchProduct = async () => {
-    if (!settings.cjConnected || !settings.cjAccessToken) {
+    if (!settings.cjConnected) {
       addLog('⚠️ Error: Connection Required. Please link your CJ account in "Connections".');
       return;
     }
     if (!productUrl) return;
 
-    cjApi.accessToken = settings.cjAccessToken;
-    cjApi.apiKey = settings.cjApiKey;
+    if (settings.cjAccessToken) cjApi.accessToken = settings.cjAccessToken;
+    if (settings.cjApiKey) cjApi.apiKey = settings.cjApiKey;
     setIsLoading(true);
     addLog(`🔍 Analyzing product path: ${productUrl}...`);
     
@@ -1367,13 +1377,13 @@ function CJManagementSection() {
   };
 
   const handleTrackOrder = async () => {
-    if (!settings.cjConnected || !settings.cjAccessToken) {
+    if (!settings.cjConnected) {
       addLog('Error: Not connected to CJ Dropshipping.');
       return;
     }
     if (!orderId) return;
 
-    cjApi.accessToken = settings.cjAccessToken;
+    if (settings.cjAccessToken) cjApi.accessToken = settings.cjAccessToken;
     setIsLoading(true);
     addLog(`Fetching tracking for ${orderId}...`);
     try {

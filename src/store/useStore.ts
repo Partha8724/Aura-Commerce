@@ -164,9 +164,9 @@ export const useStore = create<AppState>()(
         heroTitle: 'BUILD YOUR AUTOMATED RETAIL EMPIRE',
         heroSubtitle: 'The future of dropshipping is here',
         cjEmail: '',
-        cjApiKey: 'CJ5414189@api@232b557e1821465a8b4e6021391f11cf',
-        cjAccessToken: 'API@CJ5414189@CJ:eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIzNzE5MSIsInR5cGUiOiJBQ0NFU1NfVE9LRU4iLCJzdWIiOiJicUxvYnFRMGxtTm55UXB4UFdMWnlyeHpYMTl2MUU0SkJNU2NzZHJHRkdMTlhvVVZoZUc3cG1BWjlmZmxDendWL3g5b3ZnTTdzRnp2M3dyeHlTRVg3OWc2eVRGQnhuNUVERUVmN0pxak0zUVI1azVBZHNvS2lIMzZrRVYwQ0JEMnFPSnBLaGM0eDIzbWFxTW15MGJzQWFPUGtuNGQxQWZHS1QxLzB1Mit4QXprODFRdXNpejAvaXF0V2tOWFFqYWJ0ekM2a2NGNkt4VExEVkF4YjRKdVRLaFV4TTdRSkRrcE9pdHcyU0pXNjl3eitWRnhnY1YxVEJ4RC95TzBKL0x5UmlqZlNvRWx0NVl5T1lSdlVDd0JmM05JNjVQTHVhbGFWcXMwZ0lyOUdhZz0iLCJpYXQiOjE3Nzg3NzMxOTF9.OLSrUUaPwF0UmLvMBgyvCCy9h06ScVComPUR97ZJ4TM',
-        cjConnected: true,
+        cjApiKey: '',
+        cjAccessToken: '',
+        cjConnected: false,
         adminName: 'Store Admin',
         adminEmail: 'admin@auracommerce.com',
         themeColor: '#D4AF37'

@@ -12,7 +12,11 @@ async function startServer() {
 
   // Proxy for CJ Dropshipping API to avoid CORS issues
   app.get("/api/cj-proxy/health", (req, res) => {
-    res.json({ status: "ok", message: "CJ Proxy is active" });
+    res.json({ 
+      status: "ok", 
+      message: "CJ Proxy is active",
+      hasEnvKeys: !!(process.env.CJ_API_KEY && process.env.CJ_ACCESS_TOKEN)
+    });
   });
 
   app.all(/^\/api\/cj-proxy\/(.*)/, async (req, res) => {
@@ -38,6 +42,14 @@ async function startServer() {
           headers[normalizedKey] = req.headers[key] as string;
         }
       });
+
+      // SECURE INJECTION: If keys are in environment, use them as defaults/overrides
+      if (process.env.CJ_ACCESS_TOKEN && !headers["CJ-Access-Token"]) {
+        headers["CJ-Access-Token"] = process.env.CJ_ACCESS_TOKEN;
+      }
+      if (process.env.CJ_API_KEY && !headers["CJ-Api-Key"]) {
+        headers["CJ-Api-Key"] = process.env.CJ_API_KEY;
+      }
 
       const fetchOptions: any = {
         method: req.method,

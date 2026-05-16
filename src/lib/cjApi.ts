@@ -5,7 +5,17 @@ export class CJDropshippingAPI {
   tokenExpiry: Date | null = null;
   apiKey: string | null = null;
 
-  async checkDirectConnection(accessToken: string, apiKey?: string) {
+  async detectConnection() {
+    try {
+      const response = await fetch(`${this.baseURL}/health`);
+      const data = await response.json();
+      return data.hasEnvKeys === true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async checkDirectConnection(accessToken?: string, apiKey?: string) {
     try {
       // First check if proxy is reachable
       const proxyCheck = await fetch(`${this.baseURL}/health`, { method: 'GET' }).catch(() => null);
@@ -15,13 +25,16 @@ export class CJDropshippingAPI {
         return { success: false, error: 'Proxy server unreachable. Please check backend.' };
       }
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      if (accessToken) headers['CJ-Access-Token'] = accessToken;
+      if (apiKey) headers['CJ-Api-Key'] = apiKey;
+
       const response = await fetch(`${this.baseURL}/product/getCategory`, {
         method: 'GET',
-        headers: {
-          'CJ-Access-Token': accessToken,
-          ...(apiKey ? { 'CJ-Api-Key': apiKey } : {}),
-          'Content-Type': 'application/json'
-        }
+        headers
       });
       
       let data;
@@ -70,21 +83,19 @@ export class CJDropshippingAPI {
   }
 
   async getProductByUrl(url: string) {
-    if (!this.accessToken) throw new Error('Not authenticated with CJ');
-    
     // Extract PID from URL if possible
-    // Example: https://cjdropshipping.com/product/...-p-1582260655964893184.html
     const pidMatch = url.match(/-p-(\d+)\.html/);
-    const pid = pidMatch ? pidMatch[1] : url; // If not a URL, assume it might be a PID
+    const pid = pidMatch ? pidMatch[1] : url;
 
     const endpoint = pidMatch ? '/product/details' : '/product/list';
     const method = pidMatch ? 'GET' : 'POST';
     const queryParams = pidMatch ? `?pid=${pid}` : '';
     
+    // If we don't have local tokens, we rely on the server-side proxy to have them
     const response = await fetch(`${this.baseURL}${endpoint}${queryParams}`, {
       method,
       headers: {
-        'CJ-Access-Token': this.accessToken,
+        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
         ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
         'Content-Type': 'application/json'
       },
@@ -113,11 +124,10 @@ export class CJDropshippingAPI {
   }
 
   async getTracking(orderId: string) {
-    if (!this.accessToken) throw new Error('Not authenticated with CJ');
     const response = await fetch(`${this.baseURL}/order/getTrackingDetail?orderId=${orderId}`, {
       method: 'GET',
       headers: {
-        'CJ-Access-Token': this.accessToken,
+        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
         ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
         'Content-Type': 'application/json'
       }
