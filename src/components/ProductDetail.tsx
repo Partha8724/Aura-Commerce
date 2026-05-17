@@ -433,9 +433,10 @@ export function ProductDetail({ productId }: ProductDetailProps) {
           {activeTab === 'desc' && (
             <div className="max-w-3xl space-y-6">
               <h3 className="text-2xl font-bold text-white mb-4">Product Description</h3>
-              <p className="text-gray-400 leading-relaxed">
-                {product.description || 'Elevate your lifestyle with this premium product, sourced with precision and handled with care. This item brings top-tier quality seamlessly straight to your door.'}
-              </p>
+              <div 
+                className="text-gray-400 leading-relaxed product-description-html"
+                dangerouslySetInnerHTML={{ __html: product.description || 'Elevate your lifestyle with this premium product, sourced with precision and handled with care. This item brings top-tier quality seamlessly straight to your door.' }}
+              />
               <ul className="space-y-2 mt-6">
                 <li className="flex gap-2">
                   <span style={{ color: settings.themeColor }}>•</span> 

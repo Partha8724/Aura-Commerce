@@ -78,14 +78,14 @@ export function Auth() {
         setTimeout(() => {
           if (email && password.length >= 6) {
             setUser({
-              name: view === 'login' ? 'Demo User' : name,
+              name: view === 'login' ? 'Business Partner' : name,
               email,
-              storeName: 'Aura Commerce',
-              avatar: 'https://ui-avatars.com/api/?name=' + (view === 'login' ? 'Demo' : name) + '&background=D4AF37&color=000'
+              storeName: 'Aura Premium Store',
+              avatar: 'https://ui-avatars.com/api/?name=' + (view === 'login' ? 'Partner' : name) + '&background=D4AF37&color=000'
             });
             setActiveTab('shop');
           } else {
-            setError('Invalid credentials or password too short.');
+            setError('Invalid credentials. Password must be at least 6 characters.');
           }
           setLoading(false);
         }, 1000);

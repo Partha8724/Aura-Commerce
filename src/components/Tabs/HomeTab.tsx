@@ -57,36 +57,6 @@ export function HomeTab() {
   // Parallax Values
   const y1 = useTransform(scrollYProgress, [0, 1], [0, -200]);
   const y2 = useTransform(scrollYProgress, [0, 1], [0, -500]);
-  const rotate = useTransform(scrollYProgress, [0, 1], [0, 45]);
-  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
-
-  // Demo Bot State
-  const [demoUrl, setDemoUrl] = useState("");
-  const [demoState, setDemoState] = useState<'idle' | 'importing' | 'success'>('idle');
-  const [demoLog, setDemoLog] = useState<string[]>([]);
-
-  const runDemoBot = () => {
-    if (!demoUrl) setDemoUrl('https://cjdropshipping.com/product/aurabuds-pro');
-    setDemoState('importing');
-    setDemoLog(['[SYSTEM] Initializing extraction engine...']);
-
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      
-      if (progress === 25) setDemoLog(prev => [...prev, '[NETWORK] Connecting to supplier API...', '✓ Product Found!']);
-      if (progress === 50) setDemoLog(prev => [...prev, '[PROCESSING] Extracting high-res images and specs...']);
-      if (progress === 75) setDemoLog(prev => [...prev, '[AURA AI] Calculating optimal price markup...']);
-      
-      if (progress === 100) {
-        clearInterval(interval);
-        setDemoLog(prev => [...prev, '✓ Product successfully integrated.']);
-        setTimeout(() => {
-          setDemoState('success');
-        }, 800);
-      }
-    }, 800);
-  };
 
   const featured = products.slice(0, 8);
   const showcaseProducts = products.slice(0, 3);

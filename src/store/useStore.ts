@@ -141,17 +141,17 @@ export const useStore = create<AppState>()(
       })),
 
       settings: {
-        storeName: 'Aura Commerce',
+        storeName: 'Aura Premium Store',
         currency: 'USD ($)',
         globalFreeShipping: true,
-        heroTitle: 'BUILD YOUR AUTOMATED RETAIL EMPIRE',
-        heroSubtitle: 'The future of dropshipping is here',
+        heroTitle: 'ELEVATE YOUR STYLE',
+        heroSubtitle: 'Luxury curators of fine goods.',
         cjEmail: '',
         cjApiKey: '',
         cjAccessToken: '',
         cjConnected: false,
-        adminName: 'Store Admin',
-        adminEmail: 'admin@auracommerce.com',
+        adminName: '',
+        adminEmail: '',
         themeColor: '#D4AF37'
       },
       updateSettings: (updates) => set((state) => ({ settings: { ...state.settings, ...updates } })),

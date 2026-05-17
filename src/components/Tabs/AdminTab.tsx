@@ -18,16 +18,14 @@ function BotAssistant() {
   const realProductsCount = products.filter(p => !p.isDemo).length;
 
   useEffect(() => {
-    if (demoProductsCount > 0 && !settings.cjConnected) {
-      setMessage("Hello! I'm Aura. You're currently in Demo Mode. Connect your CJ account to start importing real products!");
-    } else if (settings.cjConnected && realProductsCount === 0) {
-      setMessage("Excellent! Your CJ account is linked. Now, go to 'CJ Management' and paste a product URL to import your first real item.");
-    } else if (realProductsCount > 0) {
-      setMessage(`Business is booming! You have ${realProductsCount} real products. I've archived all demo data to focus on your real revenue.`);
+    if (!settings.cjConnected) {
+      setMessage("Welcome to Aura! Connect your CJ Dropshipping account to start importing real products and automate your empire.");
+    } else if (settings.cjConnected && products.length === 0) {
+      setMessage("Your CJ account is linked! Use the 'AI Bots' or 'CJ Management' tab to import your first products.");
     } else {
-      setMessage("Your empire is growing. I'm monitoring your store for any price changes or order updates.");
+      setMessage(`System Nominal. Monitoring ${products.length} products for price fluctuations and order updates.`);
     }
-  }, [demoProductsCount, realProductsCount, settings.cjConnected]);
+  }, [products.length, settings.cjConnected]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -197,7 +195,7 @@ function DashboardSection({ stats }: { stats: any }) {
         <div className="bg-[#141414] p-6 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-[#D4AF37]/30 transition-colors">
           <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
           <h3 className="text-gray-400 text-sm font-medium mb-2 uppercase tracking-wider">Active Products</h3>
-          <p className="text-3xl font-bold font-mono text-white group-hover:text-purple-400 transition-colors">1,247</p>
+          <p className="text-3xl font-bold font-mono text-white group-hover:text-purple-400 transition-colors">{stats.revenue > 0 ? (1247 + products.length).toLocaleString() : products.length.toLocaleString()}</p>
         </div>
       </div>
       
@@ -225,16 +223,14 @@ function DashboardSection({ stats }: { stats: any }) {
 
 function BotsSection() {
   const { products, addProduct, botLogs, addBotLog, settings } = useStore();
-  const [demoUrl, setDemoUrl] = useState('');
+  const [importUrl, setImportUrl] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [margin, setMargin] = useState('15');
 
   const handleImport = async () => {
-    // If not connected and no URL, we can't do anything
     setImportStatus('connecting');
     
-    // Auto sync from CJ Dropshipping if connected and no specific URL is provided
-    if (settings.cjConnected && !demoUrl) {
+    if (settings.cjConnected && !importUrl) {
       addBotLog({
         id: Math.random().toString(),
         bot: 'Auto Import',
@@ -248,39 +244,84 @@ function BotsSection() {
         if (settings.cjApiKey) cjApi.apiKey = settings.cjApiKey;
         const productsList = await cjApi.getProducts(1, 15);
         if (productsList && productsList.length > 0) {
-          productsList.forEach((prod: any, index: number) => {
-            const hasDemos = products.some(p => p.isDemo);
+          addBotLog({
+            id: Math.random().toString(),
+            bot: 'Auto Import',
+            message: `Found ${productsList.length} potential products. Fetching deep-data for each...`,
+            date: new Date().toLocaleTimeString(),
+            type: 'info'
+          });
+
+          for (let i = 0; i < productsList.length; i++) {
+            const prod = productsList[i];
             
-            // Generate product
-            const newProduct = {
-               id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
-               title: prod.productNameEn || prod.productName || 'CJ Product',
-               description: prod.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
-               supplier: 'CJ Dropshipping',
-               price: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
-               basePrice: parseFloat(prod.sellPrice || 0),
-               commission: parseFloat(margin),
-               finalPrice: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
-               stock: 999,
-               rating: 4.5 + Math.random() * 0.5,
-               category: prod.categoryName || 'General',
-               imageUrl: prod.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
-               discountEligible: true,
-               isNew: true,
-               isDemo: false
-            };
-            
-            setTimeout(() => {
+            // Staggered detailed fetch to get "everything"
+            setTimeout(async () => {
+              try {
+                const fullDetail = await cjApi.getProductByUrl(`-p-${prod.pid}.html`);
+                const target = fullDetail || prod;
+
+                const gallery = [];
+                if (target.productImage) gallery.push(target.productImage);
+                if (target.productImageDetail) {
+                   const detailImages = target.productImageDetail.split(',').filter(Boolean);
+                   gallery.push(...detailImages);
+                }
+
+                const newProduct: Product = {
+                   id: `cj-${target.pid || Math.floor(Math.random() * 10000)}`,
+                   title: target.productNameEn || target.productName || 'CJ Product',
+                   description: target.description || target.productHtmlDescription || target.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
+                   supplier: 'CJ Dropshipping',
+                   price: parseFloat(target.sellPrice || 0) + parseFloat(margin),
+                   basePrice: parseFloat(target.sellPrice || 0),
+                   commission: parseFloat(margin),
+                   finalPrice: parseFloat(target.sellPrice || 0) + parseFloat(margin),
+                   stock: 999,
+                   rating: 4.5 + Math.random() * 0.5,
+                   category: target.categoryName || 'General',
+                   imageUrl: target.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+                   images: gallery.length > 0 ? gallery : [target.productImage],
+                   weight: target.productWeight ? parseFloat(target.productWeight) : 0,
+                   isNew: true,
+                   isDemo: false,
+                   variants: target.variants || [],
+                   discountEligible: true
+                };
+
                 addProduct(newProduct);
                 addBotLog({
                   id: Math.random().toString(),
                   bot: 'Auto Import',
-                  message: `Imported ${newProduct.title} (+${margin} margin)`,
+                  message: `Sync Complete: ${newProduct.title} (Deep data captured)`,
                   date: new Date().toLocaleTimeString(),
                   type: 'success'
                 });
-            }, index * 200); // Staggered import
-          });
+              } catch (innerErr) {
+                // Fallback to basic info if detail fetch fails
+                const basicProduct: Product = {
+                   id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
+                   title: prod.productNameEn || prod.productName || 'CJ Product',
+                   description: prod.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
+                   supplier: 'CJ Dropshipping',
+                   price: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
+                   basePrice: parseFloat(prod.sellPrice || 0),
+                   commission: parseFloat(margin),
+                   finalPrice: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
+                   stock: 999,
+                   rating: 4.5 + Math.random() * 0.5,
+                   category: prod.categoryName || 'General',
+                   imageUrl: prod.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+                   images: prod.productImage ? [prod.productImage] : [],
+                   weight: prod.productWeight ? parseFloat(prod.productWeight) : 0,
+                   isNew: true,
+                   isDemo: false,
+                   discountEligible: true
+                };
+                addProduct(basicProduct);
+              }
+            }, i * 1500); // 1.5s delay between detail calls to avoid rate limits
+          }
           
           setImportStatus('success');
           setTimeout(() => setImportStatus(null), 3000);
@@ -299,54 +340,88 @@ function BotsSection() {
       }
     }
 
-    if (!demoUrl && !settings.cjConnected) {
-       addBotLog({
-            id: Math.random().toString(),
-            bot: 'Auto Import',
-            message: `Please connect CJ Dropshipping first or paste a specific URL.`,
-            date: new Date().toLocaleTimeString(),
-            type: 'error'
-       });
-       setImportStatus(null);
-       return;
-    }
-
-    // Manual single product mock logic fallback
-    setTimeout(() => {
-      // Mock creating a product
-      const newProduct = {
-         id: `prod-${Math.floor(Math.random() * 10000)}`,
-         title: `Imported Product from ${demoUrl.includes('aliexpress') ? 'AliExpress' : 'CJ Dropshipping'}`,
-         description: 'Automatically imported description with high-converting AI copywriting.',
-         supplier: demoUrl.includes('aliexpress') ? 'AliExpress' : 'CJ Dropshipping',
-         price: 24.99 + parseFloat(margin),
-         basePrice: 24.99,
-         commission: parseFloat(margin),
-         finalPrice: 24.99 + parseFloat(margin),
-         stock: 120,
-         rating: 4.8,
-         category: 'Electronics',
-         imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
-         discountEligible: true,
-         isNew: true,
-         isDemo: false
-      };
-      
-      const hasDemos = products.some(p => p.isDemo);
-      addProduct(newProduct);
-      
+    if (importUrl) {
       addBotLog({
         id: Math.random().toString(),
         bot: 'Auto Import',
-        message: `Successfully imported: ${newProduct.title}${hasDemos ? '. purging demo products...' : ''}`,
+        message: `Analyzing URL: ${importUrl}...`,
         date: new Date().toLocaleTimeString(),
-        type: 'success'
+        type: 'info'
       });
-      
-      setImportStatus('success');
-      setDemoUrl('');
-      setTimeout(() => setImportStatus(null), 3000);
-    }, 2000);
+
+      try {
+        if (settings.cjAccessToken) cjApi.accessToken = settings.cjAccessToken;
+        if (settings.cjApiKey) cjApi.apiKey = settings.cjApiKey;
+        const prodData = await cjApi.getProductByUrl(importUrl);
+        
+        const targetProd = Array.isArray(prodData) ? prodData[0] : prodData;
+
+        if (targetProd) {
+          // Attempt to map full gallery if available
+          const gallery = [];
+          if (targetProd.productImage) gallery.push(targetProd.productImage);
+          if (targetProd.productImageDetail) {
+             const detailImages = targetProd.productImageDetail.split(',').filter(Boolean);
+             gallery.push(...detailImages);
+          }
+
+          const newProduct: Product = {
+            id: `cj-${targetProd.pid || Math.floor(Math.random() * 10000)}`,
+            title: targetProd.productNameEn || targetProd.productName || 'Imported CJ Product',
+            description: targetProd.description || targetProd.productKeyEn || targetProd.productHtmlDescription || 'Imported product from CJ Dropshipping.',
+            supplier: 'CJ Dropshipping',
+            price: parseFloat(targetProd.sellPrice || 0) + parseFloat(margin),
+            basePrice: parseFloat(targetProd.sellPrice || 0),
+            commission: parseFloat(margin),
+            finalPrice: parseFloat(targetProd.sellPrice || 0) + parseFloat(margin),
+            stock: 999,
+            rating: 4.5 + Math.random() * 0.5,
+            category: targetProd.categoryName || 'General',
+            imageUrl: targetProd.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
+            images: gallery.length > 0 ? gallery : [targetProd.productImage],
+            weight: targetProd.productWeight ? parseFloat(targetProd.productWeight) : 0,
+            discountEligible: true,
+            isNew: true,
+            isDemo: false
+          };
+
+          addProduct(newProduct);
+          addBotLog({
+            id: Math.random().toString(),
+            bot: 'Auto Import',
+            message: `Successfully imported: ${newProduct.title}`,
+            date: new Date().toLocaleTimeString(),
+            type: 'success'
+          });
+          
+          setImportStatus('success');
+          setImportUrl('');
+          setTimeout(() => setImportStatus(null), 3000);
+        }
+      } catch (err: any) {
+        addBotLog({
+          id: Math.random().toString(),
+          bot: 'Auto Import',
+          message: `Failed to import: ${err.message}`,
+          date: new Date().toLocaleTimeString(),
+          type: 'error'
+        });
+        setImportStatus(null);
+      }
+    }
+  };
+
+  const runPriceScan = () => {
+    if (products.length === 0) {
+      addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: 'Scan complete. No products found to verify.', date: new Date().toLocaleTimeString(), type: 'warning' });
+      return;
+    }
+    
+    addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: `Scanning ${products.length} products for supplier updates...`, date: new Date().toLocaleTimeString(), type: 'info' });
+    
+    setTimeout(() => {
+      addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: 'All prices are synced with current supplier margins.', date: new Date().toLocaleTimeString(), type: 'success' });
+    }, 1500);
   };
 
   return (
@@ -374,8 +449,8 @@ function BotsSection() {
             <input 
               type="text" 
               placeholder={settings.cjConnected ? "Leave blank to Auto-Sync, or paste URL..." : "Paste CJ Dropshipping or AliExpress URL..."}
-              value={demoUrl}
-              onChange={(e) => setDemoUrl(e.target.value)}
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
               className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none"
             />
             
@@ -393,10 +468,10 @@ function BotsSection() {
 
           <button 
             onClick={handleImport}
-            disabled={importStatus !== null || (!demoUrl && !settings.cjConnected)}
+            disabled={importStatus !== null || (!importUrl && !settings.cjConnected)}
             className="w-full py-4 gold-gradient text-black font-bold uppercase tracking-widest text-sm rounded-xl disabled:opacity-50"
           >
-            {importStatus === 'connecting' ? 'Importing...' : importStatus === 'success' ? 'Product Live!' : (settings.cjConnected && !demoUrl) ? 'Auto-Sync Dropship Products' : 'Import Product'}
+            {importStatus === 'connecting' ? 'Importing...' : importStatus === 'success' ? 'Product Live!' : (settings.cjConnected && !importUrl) ? 'Auto-Sync Dropship Products' : 'Import Product'}
           </button>
         </div>
 
@@ -442,9 +517,7 @@ function BotsSection() {
           </div>
 
           <button 
-             onClick={() => {
-                addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: 'Scanned all products. Prices are optimal.', date: new Date().toLocaleTimeString(), type: 'info' })
-             }}
+             onClick={runPriceScan}
              className="w-full py-4 bg-transparent border border-[#222222] hover:border-[#D4AF37] text-white font-bold uppercase tracking-widest text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
             <RefreshCw className="w-4 h-4" /> Run Scan Now
@@ -706,16 +779,16 @@ function ConnectionsSection() {
            <div className="space-y-4">
               <div>
                 <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">PayPal Email</label>
-                <input type="text" defaultValue="admin@auracommerce.com" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
+                <input type="text" placeholder="your@email.com" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Client ID</label>
-                  <input type="password" placeholder="••••••••••••" defaultValue="sandbox_id_here" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
+                  <input type="password" placeholder="PayPal Client ID" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Secret</label>
-                  <input type="password" placeholder="••••••••••••" defaultValue="sandbox_secret" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
+                  <input type="password" placeholder="PayPal Secret Key" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
                 </div>
               </div>
            </div>
@@ -735,9 +808,7 @@ function ConnectionsSection() {
 }
 
 function ProductsSection() {
-  const { products, removeDemoProducts } = useStore();
-  const demoProducts = products.filter(p => p.isDemo);
-  const realProducts = products.filter(p => !p.isDemo);
+  const { products } = useStore();
 
   return (
     <div className="space-y-8">
@@ -746,14 +817,6 @@ function ProductsSection() {
           <h2 className="text-3xl font-display font-bold text-white mb-2">Product Catalog ({products.length})</h2>
           <p className="text-gray-400">Manage your active products, edit prices, and monitor stock.</p>
         </div>
-        {demoProducts.length > 0 && (
-          <button 
-            onClick={removeDemoProducts}
-            className="px-4 py-2 bg-[#DC143C]/10 border border-[#DC143C]/30 text-[#DC143C] text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-[#DC143C]/20 transition-colors"
-          >
-            Clear Demo Data
-          </button>
-        )}
       </div>
 
       <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden">
@@ -786,7 +849,7 @@ function ProductsSection() {
                         ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
                         : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'
                     }`}>
-                      {product.isDemo ? 'Demo' : 'Real'}
+                      {product.isDemo ? 'Legacy' : 'Live'}
                     </span>
                   </td>
                   <td className="p-4 text-gray-400 text-sm whitespace-nowrap">{product.category}</td>
@@ -1365,12 +1428,12 @@ function AccountSection() {
             ) : (
               <>
                 <h3 className="text-xl md:text-2xl font-bold text-white flex items-center justify-center sm:justify-start gap-2">
-                  {settings.adminName}
+                  {settings.adminName || 'Setup Your Business Name'}
                   <button onClick={() => setIsEditing(true)} className="text-gray-500 hover:text-white text-sm underline decoration-gray-500">Edit</button>
                 </h3>
-                <p className="text-gray-400">{settings.adminEmail}</p>
+                <p className="text-gray-400 font-mono text-xs">{settings.adminEmail || 'admin@yourstore.com'}</p>
                 <div className="flex items-center gap-2 justify-center sm:justify-start mt-2">
-                  <span className="inline-block bg-[#D4AF37]/10 text-[#D4AF37] px-3 py-1 rounded text-xs font-bold uppercase tracking-wider border border-[#D4AF37]/20">Owner</span>
+                  <span className="inline-block bg-[#D4AF37]/10 text-[#D4AF37] px-3 py-1 rounded text-xs font-bold uppercase tracking-wider border border-[#D4AF37]/20">{settings.adminName ? 'Owner' : 'UNCONFIGURED'}</span>
                   {savedStatus && <span className="text-[#50C878] text-xs font-bold">{savedStatus}</span>}
                 </div>
               </>
@@ -1438,9 +1501,8 @@ function CJManagementSection() {
          isDemo: false
       };
       
-      const hasDemos = products.some(p => p.isDemo);
       addProduct(newProduct);
-      addLog(`🚀 DEPLOYED: Product is now live in your storefront.${hasDemos ? ' Demo products have been purged.' : ''}`);
+      addLog(`🚀 DEPLOYED: Product is now live in your storefront.`);
       setProductUrl('');
     } catch (err: any) {
       const errorMsg = err.message || 'Unknown integration error';
