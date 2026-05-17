@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { cjApi } from '../../lib/cjApi';
 import { supabase } from '../../lib/supabase';
+import { Product } from '../../types';
 import { 
   BarChart3, Package, Bot, ShoppingCart, DollarSign, CreditCard, 
   Users, Tag, LayoutDashboard, Link2, Settings, UserCircle,
@@ -161,6 +162,7 @@ export function AdminTab() {
 }
 
 function DashboardSection({ stats }: { stats: any }) {
+  const { products } = useStore();
   return (
     <div className="space-y-8">
       <div>

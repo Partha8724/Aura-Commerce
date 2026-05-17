@@ -18,6 +18,37 @@ export default function App() {
   const activeTab = useStore(state => state.activeTab);
   const selectedProductId = useStore(state => state.selectedProductId);
   const updateSettings = useStore(state => state.updateSettings);
+  const addBotLog = useStore(state => state.addBotLog);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      addBotLog({
+        id: Math.random().toString(),
+        bot: 'System Monitor',
+        message: `Runtime Error: ${event.message}`,
+        date: new Date().toLocaleTimeString(),
+        type: 'error'
+      });
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      addBotLog({
+        id: Math.random().toString(),
+        bot: 'System Monitor',
+        message: `Unhandled Promise: ${event.reason}`,
+        date: new Date().toLocaleTimeString(),
+        type: 'error'
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, [addBotLog]);
 
   useEffect(() => {
     async function initSupabaseSync() {
@@ -39,8 +70,14 @@ export default function App() {
               cjApiKey: data.cj_api_key || '' 
             });
           }
-        } catch (e) {
-          // ignore
+        } catch (e: any) {
+          addBotLog({
+            id: Math.random().toString(),
+            bot: 'System Monitor',
+            message: `Supabase Sync Error: ${e.message || 'Unknown failure'}`,
+            date: new Date().toLocaleTimeString(),
+            type: 'warning'
+          });
         }
       }
     }

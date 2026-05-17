@@ -46,11 +46,6 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Header Badges */}
       <div className="absolute top-8 w-[calc(100%-40px)] left-5 flex justify-between items-start z-30 pointer-events-none">
         <div className="flex flex-col gap-2">
-          {product.isDemo && (
-            <span className="bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest">
-              Demo Data
-            </span>
-          )}
           {!product.isDemo && (
             <span className="bg-[#50C878] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest shadow-[0_0_10px_rgba(80,200,120,0.4)]">
               Verified Source
