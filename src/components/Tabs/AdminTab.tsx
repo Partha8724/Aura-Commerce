@@ -14,9 +14,6 @@ function BotAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
 
-  const demoProductsCount = products.filter(p => p.isDemo).length;
-  const realProductsCount = products.filter(p => !p.isDemo).length;
-
   useEffect(() => {
     if (!settings.cjConnected) {
       setMessage("Welcome to Aura! Connect your CJ Dropshipping account to start importing real products and automate your empire.");
@@ -64,11 +61,6 @@ function BotAssistant() {
         className="w-14 h-14 rounded-full gold-gradient shadow-[0_0_20px_rgba(212,175,55,0.4)] flex items-center justify-center group transition-transform hover:rotate-12 active:scale-90"
       >
         <Bot className="w-7 h-7 text-black transition-transform group-hover:scale-110" />
-        {demoProductsCount > 0 && realProductsCount === 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#DC143C] text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#0A0A0A]">
-            1
-          </span>
-        )}
       </button>
     </div>
   );
@@ -825,7 +817,6 @@ function ProductsSection() {
             <thead>
               <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-gray-500 bg-[#0A0A0A]">
                 <th className="p-4 font-medium">Product</th>
-                <th className="p-4 font-medium">Type</th>
                 <th className="p-4 font-medium">Category</th>
                 <th className="p-4 font-medium">Base Price</th>
                 <th className="p-4 font-medium">Your Price</th>
@@ -842,15 +833,6 @@ function ProductsSection() {
                       </div>
                       <span className="truncate max-w-[200px] block">{product.title}</span>
                     </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
-                      product.isDemo 
-                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                        : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'
-                    }`}>
-                      {product.isDemo ? 'Legacy' : 'Live'}
-                    </span>
                   </td>
                   <td className="p-4 text-gray-400 text-sm whitespace-nowrap">{product.category}</td>
                   <td className="p-4 text-gray-300 text-sm">${(product.price || product.basePrice || 0).toFixed(2)}</td>

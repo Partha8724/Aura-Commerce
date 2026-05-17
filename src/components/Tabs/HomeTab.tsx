@@ -57,6 +57,8 @@ export function HomeTab() {
   // Parallax Values
   const y1 = useTransform(scrollYProgress, [0, 1], [0, -200]);
   const y2 = useTransform(scrollYProgress, [0, 1], [0, -500]);
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 45]);
+  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
 
   const featured = products.slice(0, 8);
   const showcaseProducts = products.slice(0, 3);
