@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, useMotionValue, useTransform } from 'motion/react';
-import { Heart, Star, ShoppingCart, Check } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
+import { Heart, Star, ShoppingCart, Check, Play, X } from 'lucide-react';
 import { Product } from '../types';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -16,6 +16,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const setSelectedProductId = useStore(state => state.setSelectedProductId);
   
   const [showQuickView, setShowQuickView] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
 
   // 3D Tilt Effect Setup
@@ -63,12 +64,24 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           )}
         </div>
-        <button 
-          onClick={(e) => { e.preventDefault(); setIsWishlist(!isWishlist); }}
-          className="pointer-events-auto p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#D4AF37] transition-all"
-        >
-          <Heart className={`w-4 h-4 ${isWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-white'}`} />
-        </button>
+        <div className="flex flex-col gap-2 pointer-events-auto">
+          <button 
+            onClick={(e) => { e.preventDefault(); setIsWishlist(!isWishlist); }}
+            className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#D4AF37] transition-all"
+          >
+            <Heart className={`w-4 h-4 ${isWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-white'}`} />
+          </button>
+          <button 
+            onClick={(e) => { 
+                e.preventDefault(); 
+                e.stopPropagation();
+                setShowVideoModal(true); 
+            }}
+            className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#FF6A00] transition-all group/video"
+          >
+            <Play className="w-4 h-4 text-white group-hover/video:text-[#FF6A00] fill-current" />
+          </button>
+        </div>
       </div>
 
       {/* Image Container */}
@@ -95,6 +108,46 @@ export function ProductCard({ product }: ProductCardProps) {
           </button>
         </div>
       </div>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {showVideoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/90 backdrop-blur-xl"
+            onClick={(e) => { e.stopPropagation(); setShowVideoModal(false); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(255,106,0,0.2)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowVideoModal(false)}
+                className="absolute top-4 right-4 z-50 p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:bg-white/10 transition-colors"
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+              
+              <video 
+                src={product.videoUrl || 'https://www.w3schools.com/html/mov_bbb.mp4'} 
+                controls 
+                autoPlay 
+                className="w-full h-full object-contain"
+              />
+              
+              <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+                 <h4 className="text-white font-bold text-lg">{product.title}</h4>
+                 <p className="text-gray-400 text-sm">Product Demonstration</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Details */}
       <div className="flex flex-col flex-grow z-20 bg-transparent translate-z-[20px]">

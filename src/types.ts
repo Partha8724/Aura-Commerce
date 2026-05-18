@@ -31,6 +31,7 @@ export interface Product {
   tags?: string[];
   images?: string[];
   imageUrl?: string;
+  videoUrl?: string;
   variants?: any[];
 }
 

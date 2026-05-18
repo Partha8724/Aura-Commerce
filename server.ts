@@ -11,32 +11,32 @@ async function startServer() {
   app.use(cors());
 
   // Proxy for CJ Dropshipping API to avoid CORS issues
-  app.get("/api/cj-proxy/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      message: "CJ Proxy is active",
-      hasEnvKeys: !!(process.env.CJ_API_KEY && process.env.CJ_ACCESS_TOKEN)
-    });
-  });
+  app.use("/api/cj-proxy", async (req, res, next) => {
+    // Handle health check
+    if (req.path === "/health" || req.url === "/health") {
+      console.log("[CJ Proxy] Health check Success");
+      return res.json({ 
+        status: "ok", 
+        message: "CJ Proxy is active",
+        hasEnvKeys: !!(process.env.CJ_API_KEY && process.env.CJ_ACCESS_TOKEN)
+      });
+    }
 
-  // Use a more robust route pattern for the proxy
-  app.all("/api/cj-proxy/*", async (req, res) => {
-    // Skip if it's health (already handled above, but just in case)
-    if (req.path === "/api/cj-proxy/health") return;
-
-    // Extract the portion of the path after /api/cj-proxy/
-    const cjPath = req.path.replace(/^\/api\/cj-proxy\//, "");
+    // Extract the portion of the path after /api/cj-proxy
+    // req.path in app.use("/api/cj-proxy") will be the subpath (e.g., "/product/getCategory")
+    const cjPath = (req.path || "").replace(/^\//, "");
     
     if (!cjPath) {
+       console.log("[CJ Proxy] Error: Missing path");
        return res.status(400).json({ code: 400, message: "Missing CJ endpoint path after /api/cj-proxy/" });
     }
 
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
     
-    // Using .cn which is often more stable for their API documentation links
-    const targetUrl = `https://developers.cjdropshipping.cn/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
+    // Using .com as it's the standard global endpoint
+    const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
     
-    console.log(`[CJ Proxy] ${req.method} -> ${targetUrl}`);
+    console.log(`[CJ Proxy] Requesting: ${req.method} -> ${targetUrl}`);
     
     try {
       const headers: Record<string, string> = {
@@ -45,9 +45,11 @@ async function startServer() {
 
       // Forward ALL cj-related headers (case-insensitive check)
       Object.keys(req.headers).forEach(key => {
-        if (key.toLowerCase().startsWith("cj-")) {
+        const lowerKey = key.toLowerCase();
+        if (lowerKey === "cj-access-token" || lowerKey === "cj-api-key" || lowerKey.startsWith("cj-")) {
+          // Normalize header name for CJ API
           const parts = key.split('-');
-          const normalizedKey = parts.map((part, index) => {
+          const normalizedKey = parts.map((part) => {
             if (part.toLowerCase() === 'cj') return 'CJ';
             return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
           }).join('-');
@@ -63,9 +65,13 @@ async function startServer() {
         headers["CJ-Api-Key"] = process.env.CJ_API_KEY;
       }
 
+      console.log(`[CJ Proxy] Active headers:`, Object.keys(headers).filter(h => h.startsWith('CJ-')));
+
       const fetchOptions: any = {
         method: req.method,
         headers: headers,
+        // Ensure we don't hang too long
+        signal: AbortSignal.timeout(15000)
       };
 
       if (["POST", "PUT", "PATCH"].includes(req.method)) {
@@ -75,32 +81,31 @@ async function startServer() {
       const response = await fetch(targetUrl, fetchOptions);
       const text = await response.text();
       
-      console.log(`[CJ Proxy] Output Status: ${response.status}`);
+      console.log(`[CJ Proxy] CJ Backend Response Status: ${response.status}`);
 
       let data;
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("[CJ Proxy] Failed to parse JSON response:", text);
-        // If it's a 404 HTML from CJ, we should still return the status code properly
-        if (response.status === 404) {
-          return res.status(404).json({
-            code: 404,
-            message: "CJ Endpoint not found on their server. (Non-JSON 404 response)",
-            targetUrl
-          });
-        }
+        console.error("[CJ Proxy] Non-JSON response from CJ. Status:", response.status);
+        console.error("[CJ Proxy] Response Snippet:", text.substring(0, 200));
+        
+        // Return a JSON error to the client even if the backend didn't
         return res.status(response.status).json({ 
-          code: 500, 
-          message: "CJ API returned non-JSON response. status: " + response.status,
+          code: response.status, 
+          message: `CJ API returned a non-JSON response with status ${response.status}.`,
           raw: text.substring(0, 500)
         });
       }
 
       res.status(response.status).json(data);
     } catch (error: any) {
+      const isTimeout = error.name === 'AbortError' || error.message.includes('timeout');
       console.error("[CJ Proxy Error]:", error.message);
-      res.status(500).json({ code: 500, message: "Proxy networking error: " + error.message });
+      res.status(isTimeout ? 504 : 500).json({ 
+        code: isTimeout ? 504 : 500, 
+        message: isTimeout ? "CJ API request timed out." : "Proxy networking error: " + error.message 
+      });
     }
   });
 
