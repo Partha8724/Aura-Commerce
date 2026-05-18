@@ -2,59 +2,66 @@ import type { MetadataRoute } from 'next';
 import { supabase } from '../src/lib/supabase';
 
 /**
- * Dynamic Sitemap for AURA COMMERCE
- * Generates static routes and dynamic product pages.
- * Revalidates every hour.
+ * PRODUCTION DYNAMIC SITEMAP GENERATOR for AURA COMMERCE
+ * 
+ * Path: app/sitemap.ts
+ * Description: Generates a real-time sitemap by combining static routes 
+ * with dynamic product records from Supabase.
  */
-export const revalidate = 3600; // Revalidate every hour
+
+export const revalidate = 3600; // Force revalidation every 1 hour (3600 seconds)
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aura-commerce-833j.vercel.app';
+  const baseUrl = 'https://aura-commerce-833j.vercel.app';
+  
+  console.log('[Sitemap Builder]: Generating production sitemap...');
 
-  // 1. Static Routes
-  const staticRoutes = [
-    { path: '', priority: 1.0, changeFreq: 'daily' as const },
-    { path: '/men', priority: 0.8, changeFreq: 'daily' as const },
-    { path: '/women', priority: 0.8, changeFreq: 'daily' as const },
-    { path: '/electronics', priority: 0.8, changeFreq: 'daily' as const },
-    { path: '/home', priority: 0.8, changeFreq: 'daily' as const },
-    { path: '/shop', priority: 0.9, changeFreq: 'daily' as const },
-  ].map(({ path, priority, changeFreq }) => ({
-    url: `${siteUrl}${path}`,
-    lastModified: new Date(),
-    changeFrequency: changeFreq,
-    priority: priority,
-  }));
-
-  // 2. Dynamic Product Routes
-  let productRoutes: MetadataRoute.Sitemap = [];
+  // 1. Static Routes Configuration
+  const staticRoutes: MetadataRoute.Sitemap = [
+    { url: `${baseUrl}/`, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
+    { url: `${baseUrl}/men`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${baseUrl}/women`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${baseUrl}/electronics`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${baseUrl}/home`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${baseUrl}/shop`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
+    { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${baseUrl}/delivery-information`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/returns-policy`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${baseUrl}/about-us`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${baseUrl}/faq`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
+  ];
 
   try {
+    // 2. Fetch Dynamic Product Slugs from Supabase
     const { data: products, error } = await supabase
       .from('products')
       .select('slug, updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(5000); // Prevents timeout
+      .order('updated_at', { ascending: false });
 
     if (error) {
-      console.error('[Supabase Query Error]:', error.message);
+      console.error('[Sitemap Builder Error]: Supabase query failed:', error.message);
+      return staticRoutes; // Graceful fallback to static routes
     }
 
-    if (products && products.length > 0) {
-      productRoutes = products.map((product) => ({
-        url: `${siteUrl}/shop/${product.slug}`,
-        lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
-        changeFrequency: 'weekly' as const,
-        priority: 0.6,
-      }));
+    if (!products || products.length === 0) {
+      console.warn('[Sitemap Builder Warning]: No products found in database.');
+      return staticRoutes;
     }
-  } catch (error) {
-    console.error(
-      '[Sitemap Generation Error]:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+
+    // 3. Map Products to Sitemap Format
+    const productRoutes: MetadataRoute.Sitemap = products.map((product) => ({
+      url: `${baseUrl}/shop/${product.slug}`,
+      lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    }));
+
+    console.log(`[Sitemap Builder Success]: Generated ${productRoutes.length} dynamic product entries.`);
+
+    return [...staticRoutes, ...productRoutes];
+
+  } catch (err: any) {
+    console.error('[Sitemap Builder Fatal Error]:', err.message);
+    return staticRoutes; // Maximum reliability: never return 404
   }
-
-  // Always returns static routes even if Supabase fails
-  return [...staticRoutes, ...productRoutes];
 }

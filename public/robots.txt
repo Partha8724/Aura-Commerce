@@ -1,0 +1,14 @@
+# Emergency Static Fallback Robots.txt for AURA COMMERCE
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /account/
+Disallow: /dashboard/
+Disallow: /_next/
+Disallow: /private/
+
+Crawl-delay: 5
+
+Sitemap: https://aura-commerce-833j.vercel.app/sitemap.xml
