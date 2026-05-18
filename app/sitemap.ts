@@ -3,10 +3,13 @@ import { supabase } from '../src/lib/supabase';
 
 /**
  * PRODUCTION DYNAMIC SITEMAP GENERATOR for AURA COMMERCE
+ * 
  * Path: app/sitemap.ts
+ * Description: Generates a real-time sitemap by combining static routes 
+ * with dynamic product records from Supabase.
  */
 
-export const revalidate = 3600; // Force revalidation every hour
+export const revalidate = 3600; // Force revalidation every 1 hour (3600 seconds)
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://aura-commerce-833j.vercel.app';
@@ -24,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    // 2. Fetch Dynamic Product Slugs from Supabase (Limit 5000 for safety)
+    // 2. Fetch Dynamic Product Slugs from Supabase
     const { data: products, error } = await supabase
       .from('products')
       .select('slug, updated_at')
@@ -33,10 +36,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     if (error) {
       console.error('[Sitemap Builder Error]: Supabase query failed:', error.message);
-      return staticRoutes; // Graceful fallback
+      return staticRoutes; // Graceful fallback to static routes
     }
 
     if (!products || products.length === 0) {
+      console.warn('[Sitemap Builder Warning]: No products found in database.');
       return staticRoutes;
     }
 
@@ -49,6 +53,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     console.log(`[Sitemap Builder Success]: Generated ${productRoutes.length} dynamic product entries.`);
+
     return [...staticRoutes, ...productRoutes];
 
   } catch (err: any) {
