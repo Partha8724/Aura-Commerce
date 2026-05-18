@@ -19,10 +19,22 @@ async function startServer() {
     });
   });
 
-  app.all(/^\/api\/cj-proxy\/(.*)/, async (req, res) => {
-    const cjPath = req.params[0] || "";
+  // Use a more robust route pattern for the proxy
+  app.all("/api/cj-proxy/*", async (req, res) => {
+    // Skip if it's health (already handled above, but just in case)
+    if (req.path === "/api/cj-proxy/health") return;
+
+    // Extract the portion of the path after /api/cj-proxy/
+    const cjPath = req.path.replace(/^\/api\/cj-proxy\//, "");
+    
+    if (!cjPath) {
+       return res.status(400).json({ code: 400, message: "Missing CJ endpoint path after /api/cj-proxy/" });
+    }
+
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
-    const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
+    
+    // Using .cn which is often more stable for their API documentation links
+    const targetUrl = `https://developers.cjdropshipping.cn/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
     
     console.log(`[CJ Proxy] ${req.method} -> ${targetUrl}`);
     
@@ -63,14 +75,24 @@ async function startServer() {
       const response = await fetch(targetUrl, fetchOptions);
       const text = await response.text();
       
+      console.log(`[CJ Proxy] Output Status: ${response.status}`);
+
       let data;
       try {
         data = JSON.parse(text);
       } catch (e) {
         console.error("[CJ Proxy] Failed to parse JSON response:", text);
-        return res.status(200).json({ 
+        // If it's a 404 HTML from CJ, we should still return the status code properly
+        if (response.status === 404) {
+          return res.status(404).json({
+            code: 404,
+            message: "CJ Endpoint not found on their server. (Non-JSON 404 response)",
+            targetUrl
+          });
+        }
+        return res.status(response.status).json({ 
           code: 500, 
-          message: "CJ API returned non-JSON response. Check your credentials or rate limits.",
+          message: "CJ API returned non-JSON response. status: " + response.status,
           raw: text.substring(0, 500)
         });
       }

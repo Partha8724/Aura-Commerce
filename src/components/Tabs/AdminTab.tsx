@@ -726,7 +726,7 @@ function ConnectionsSection() {
                   value={cjAccess}
                   onChange={e => setCjAccess(e.target.value)}
                   placeholder="Paste your CJ Access Token"
-                  rows={2}
+                  rows={4}
                   className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#FF6A00] outline-none resize-none" 
                 />
               </div>
