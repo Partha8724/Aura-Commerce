@@ -24,11 +24,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/electronics`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
     { url: `${baseUrl}/home`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
     { url: `${baseUrl}/shop`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/delivery-information`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/returns-policy`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${baseUrl}/about-us`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${baseUrl}/faq`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
   ];
 
   try {
@@ -36,7 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const { data: products, error } = await supabase
       .from('products')
       .select('slug, updated_at')
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(5000);
 
     if (error) {
       console.error('[Sitemap Builder Error]: Supabase query failed:', error.message);
