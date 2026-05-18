@@ -2,7 +2,6 @@ import type { MetadataRoute } from 'next';
 
 /**
  * PRODUCTION ROBOTS.TXT GENERATOR for AURA COMMERCE
- * 
  * Path: app/robots.ts
  */
 
@@ -24,7 +23,7 @@ export default function robots(): MetadataRoute.Robots {
           '/_next/',
           '/private/'
         ],
-        crawlDelay: 5, // Force 5 second delay to prevent server strain
+        crawlDelay: 5,
       }
     ],
     sitemap: `${baseUrl}/sitemap.xml`,
