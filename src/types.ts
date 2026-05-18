@@ -33,6 +33,7 @@ export interface Product {
   imageUrl?: string;
   videoUrl?: string;
   variants?: any[];
+  specifications?: { label: string; value: string }[];
 }
 
 export interface CartItem extends Product {

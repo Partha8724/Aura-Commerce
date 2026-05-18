@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Product } from '../types';
+import { ProductSchema } from './ProductSchema';
 
 interface ProductDetailProps {
   productId: string;
@@ -120,6 +121,14 @@ export function ProductDetail({ productId }: ProductDetailProps) {
       transition={{ duration: 0.3 }}
       className="fixed inset-0 z-[100] bg-[#0A0A0A] flex flex-col overflow-y-auto overflow-x-hidden pt-20 pb-24"
     >
+      <ProductSchema product={{
+        title: product.title,
+        images: images,
+        description: product.description,
+        price: finalPrice,
+        currency: 'USD' // Default to USD for now
+      }} />
+      
       {/* Top Bar with Back Button */}
       <div className="absolute top-0 left-0 right-0 h-20 bg-[#0A0A0A] border-b border-white/10 px-6 flex items-center justify-between z-20">
         <button 

@@ -813,6 +813,176 @@ function ConnectionsSection() {
       <div className="bg-[#1A1A1A] border border-[#D4AF37] rounded-2xl p-0 shadow-[0_4px_30px_rgba(212,175,55,0.1)] overflow-hidden max-w-3xl">
         <iframe src="/cj-quick-connect.html" className="w-full h-[850px] border-none" title="CJ Quick Connect" />
       </div>
+
+      {/* AliExpress Integration Section */}
+      <AliExpressConnector />
+    </div>
+  );
+}
+
+function AliExpressConnector() {
+  const { settings, updateSettings } = useStore();
+  const [aliKey, setAliKey] = useState(settings.aliAppKey || '');
+  const [aliSecret, setAliSecret] = useState(settings.aliAppSecret || '');
+  const [aliToken, setAliToken] = useState(settings.aliAccessToken || '');
+  const [status, setStatus] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleConnectAliExpress = async () => {
+    if (!aliKey.trim() || !aliSecret.trim() || !aliToken.trim()) {
+      setStatus('err: Please fill in all three fields (App Key, App Secret, and Access Token)');
+      return;
+    }
+
+    setIsLoading(true);
+    setStatus('Verifying AliExpress authentication...');
+
+    try {
+      const response = await fetch('/api/supplier/connect-aliexpress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ali_app_key: aliKey.trim(),
+          ali_app_secret: aliSecret.trim(),
+          ali_access_token: aliToken.trim()
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'connected') {
+        updateSettings({ 
+          aliAppKey: aliKey.trim(), 
+          aliAppSecret: aliSecret.trim(), 
+          aliAccessToken: aliToken.trim(), 
+          aliConnected: true 
+        });
+        setStatus('AliExpress Linked Successfully');
+      } else {
+        setStatus('err: ' + (result.message || 'Verification failed'));
+      }
+    } catch (err: any) {
+      setStatus('err: Connection failed - ' + err.message);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setStatus(null), 5000);
+    }
+  };
+
+  const handleDisconnectAliExpress = () => {
+    if (confirm('Disconnect AliExpress? This will stop automated sourcing from this supplier.')) {
+      updateSettings({ aliConnected: false, aliAppKey: '', aliAppSecret: '', aliAccessToken: '' });
+      setAliKey('');
+      setAliSecret('');
+      setAliToken('');
+      setStatus('Disconnected.');
+      setTimeout(() => setStatus(null), 3000);
+    }
+  };
+
+  return (
+    <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="p-6 border-b border-white/5">
+         <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#E62E04] rounded flex items-center justify-center text-white font-bold text-xs">AE</div>
+              AliExpress Dropshipping Integration
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${settings.aliConnected ? 'bg-[#50C878] animate-pulse' : 'bg-gray-600'}`} />
+              <span className={`text-xs font-bold uppercase tracking-wider ${settings.aliConnected ? 'text-[#50C878]' : 'text-gray-500'}`}>
+                {settings.aliConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+         </div>
+
+         {status && (
+            <div className={`mb-6 p-4 rounded-xl text-xs font-bold uppercase tracking-widest border transition-all ${
+              status.startsWith('err:') 
+                ? 'bg-red-500/10 text-red-500 border-red-500/20' 
+                : 'bg-green-500/10 text-green-500 border-green-500/20'
+            }`}>
+              {status.replace('err: ', '')}
+            </div>
+         )}
+         
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="space-y-4 md:col-span-1">
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">AliExpress App Key</label>
+                <input 
+                  type="text" 
+                  value={aliKey}
+                  onChange={e => setAliKey(e.target.value)}
+                  placeholder="234123xx"
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#E62E04] outline-none font-mono" 
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">AliExpress App Secret</label>
+                <input 
+                  type="password" 
+                  value={aliSecret}
+                  onChange={e => setAliSecret(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#E62E04] outline-none" 
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-4 md:col-span-1">
+               <div>
+                 <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">AliExpress Access Token</label>
+                 <textarea 
+                   value={aliToken}
+                   onChange={e => setAliToken(e.target.value)}
+                   placeholder="Your session token..."
+                   rows={4}
+                   className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#E62E04] outline-none resize-none text-[10px] h-[116px]" 
+                 />
+               </div>
+            </div>
+         </div>
+         
+         <div className="flex flex-wrap gap-4">
+           {!settings.aliConnected ? (
+              <button 
+                onClick={handleConnectAliExpress}
+                disabled={isLoading}
+                className="px-10 py-4 bg-[#E62E04] text-white font-bold text-xs uppercase tracking-[2px] rounded-lg hover:brightness-110 disabled:opacity-50 flex items-center gap-3 transition-all"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {isLoading ? 'Verifying...' : 'Link AliExpress Account'}
+              </button>
+           ) : (
+             <>
+               <button 
+                 onClick={handleConnectAliExpress}
+                 disabled={isLoading}
+                 className="px-10 py-4 border border-[#50C878] text-[#50C878] font-bold text-xs uppercase tracking-[2px] rounded-lg hover:bg-[#50C878]/10 disabled:opacity-50 flex items-center gap-3 transition-all"
+               >
+                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                 Update Config
+               </button>
+               <button 
+                 onClick={handleDisconnectAliExpress}
+                 className="px-10 py-4 border border-white/10 text-gray-500 font-bold text-xs uppercase tracking-[2px] rounded-lg hover:border-red-500 hover:text-red-500 transition-all"
+               >
+                 Unlink
+               </button>
+             </>
+           )}
+         </div>
+      </div>
+      
+      <div className="p-4 bg-black/30 flex items-center gap-4">
+         <div className="p-2 rounded bg-white/5">
+            <Bot className="w-4 h-4 text-[#D4AF37]" />
+         </div>
+         <p className="text-[10px] text-gray-500 max-w-xl">
+           <span className="font-bold text-gray-400 uppercase tracking-tighter">AI Status:</span> To obtain your keys, log in to the <a href="https://open.aliexpress.com" target="_blank" className="text-[#E62E04] hover:underline">AliExpress Open Platform</a> and create a new Dropshipping Application. Authentication is handled via synchronous handshake.
+         </p>
+      </div>
     </div>
   );
 }

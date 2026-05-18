@@ -3,6 +3,8 @@ import path from "path";
 import cors from "cors";
 import { createServer as createViteServer } from "vite";
 
+import { syncSitemapToGoogle, startSearchConsoleSync } from "./src/services/searchConsoleSync";
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -23,7 +25,6 @@ async function startServer() {
     }
 
     // Extract the portion of the path after /api/cj-proxy
-    // req.path in app.use("/api/cj-proxy") will be the subpath (e.g., "/product/getCategory")
     const cjPath = (req.path || "").replace(/^\//, "");
     
     if (!cjPath) {
@@ -32,22 +33,17 @@ async function startServer() {
     }
 
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
-    
-    // Using .com as it's the standard global endpoint
     const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
-    
-    console.log(`[CJ Proxy] Requesting: ${req.method} -> ${targetUrl}`);
     
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
 
-      // Forward ALL cj-related headers (case-insensitive check)
+      // Forward ALL cj-related headers
       Object.keys(req.headers).forEach(key => {
         const lowerKey = key.toLowerCase();
         if (lowerKey === "cj-access-token" || lowerKey === "cj-api-key" || lowerKey.startsWith("cj-")) {
-          // Normalize header name for CJ API
           const parts = key.split('-');
           const normalizedKey = parts.map((part) => {
             if (part.toLowerCase() === 'cj') return 'CJ';
@@ -57,7 +53,6 @@ async function startServer() {
         }
       });
 
-      // SECURE INJECTION: If keys are in environment, use them as defaults/overrides
       if (process.env.CJ_ACCESS_TOKEN && !headers["CJ-Access-Token"]) {
         headers["CJ-Access-Token"] = process.env.CJ_ACCESS_TOKEN;
       }
@@ -65,12 +60,9 @@ async function startServer() {
         headers["CJ-Api-Key"] = process.env.CJ_API_KEY;
       }
 
-      console.log(`[CJ Proxy] Active headers:`, Object.keys(headers).filter(h => h.startsWith('CJ-')));
-
       const fetchOptions: any = {
         method: req.method,
         headers: headers,
-        // Ensure we don't hang too long
         signal: AbortSignal.timeout(15000)
       };
 
@@ -81,19 +73,13 @@ async function startServer() {
       const response = await fetch(targetUrl, fetchOptions);
       const text = await response.text();
       
-      console.log(`[CJ Proxy] CJ Backend Response Status: ${response.status}`);
-
       let data;
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("[CJ Proxy] Non-JSON response from CJ. Status:", response.status);
-        console.error("[CJ Proxy] Response Snippet:", text.substring(0, 200));
-        
-        // Return a JSON error to the client even if the backend didn't
         return res.status(response.status).json({ 
           code: response.status, 
-          message: `CJ API returned a non-JSON response with status ${response.status}.`,
+          message: `CJ API returned a non-JSON response.`,
           raw: text.substring(0, 500)
         });
       }
@@ -101,11 +87,113 @@ async function startServer() {
       res.status(response.status).json(data);
     } catch (error: any) {
       const isTimeout = error.name === 'AbortError' || error.message.includes('timeout');
-      console.error("[CJ Proxy Error]:", error.message);
       res.status(isTimeout ? 504 : 500).json({ 
         code: isTimeout ? 504 : 500, 
         message: isTimeout ? "CJ API request timed out." : "Proxy networking error: " + error.message 
       });
+    }
+  });
+
+  // AliExpress Dropshipping Integration
+  app.post("/api/supplier/connect-aliexpress", async (req, res) => {
+    const { ali_app_key, ali_app_secret, ali_access_token } = req.body;
+
+    if (!ali_app_key || !ali_app_secret || !ali_access_token) {
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Missing required fields: App Key, App Secret, and Access Token are all required." 
+      });
+    }
+
+    try {
+      // Import the service dynamically or at the top
+      const { testAliExpressConnection } = await import("./src/services/aliexpress");
+      const result = await testAliExpressConnection({ ali_app_key, ali_app_secret, ali_access_token });
+      
+      // In a real application, here you would persist these to your Supabase settings table
+      // e.g., await supabase.from('settings').update({ value: { key, secret, token } }).eq('name', 'aliexpress_config')
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ status: "error", message: error.message });
+    }
+  });
+
+  app.get("/api/supplier/aliexpress-item/:id", async (req, res) => {
+    // This assumes keys are globally available or passed in (for simplicity we use env or req query in real scenarios)
+    // For this blueprint, we'll use placeholder keys if not provided to demonstrate the flow
+    const config = {
+      ali_app_key: (req.query.key as string) || process.env.ALI_APP_KEY || "",
+      ali_app_secret: (req.query.secret as string) || process.env.ALI_APP_SECRET || "",
+      ali_access_token: (req.query.token as string) || process.env.ALI_ACCESS_TOKEN || ""
+    };
+
+    try {
+       const { fetchAliExpressItem } = await import("./src/services/aliexpress");
+       const item = await fetchAliExpressItem(req.params.id, config);
+       res.json(item);
+    } catch (error: any) {
+       res.status(500).json({ status: "error", message: error.message });
+    }
+  });
+
+  // SEO Generation Agent Endpoint
+  app.post("/api/seo/generate", async (req, res) => {
+    // ... logic
+  });
+
+  // Dynamic SEO Metadata Routes
+  app.get("/robots.txt", async (req, res) => {
+    try {
+      const { default: robots } = await import("./app/robots");
+      const rules = robots();
+      let robotsTxt = "";
+      
+      const rulesArray = Array.isArray(rules.rules) ? rules.rules : rules.rules ? [rules.rules] : [];
+      
+      rulesArray.forEach(rule => {
+        robotsTxt += `User-agent: ${Array.isArray(rule.userAgent) ? rule.userAgent.join(', ') : rule.userAgent}\n`;
+        if (rule.allow) {
+          const allows = Array.isArray(rule.allow) ? rule.allow : [rule.allow];
+          allows.forEach(a => robotsTxt += `Allow: ${a}\n`);
+        }
+        if (rule.disallow) {
+          const disallows = Array.isArray(rule.disallow) ? rule.disallow : [rule.disallow];
+          disallows.forEach(d => robotsTxt += `Disallow: ${d}\n`);
+        }
+        robotsTxt += "\n";
+      });
+
+      if (rules.sitemap) {
+        robotsTxt += `Sitemap: ${rules.sitemap}\n`;
+      }
+
+      res.type('text/plain').send(robotsTxt);
+    } catch (error) {
+      res.type('text/plain').send("User-agent: *\nAllow: /");
+    }
+  });
+
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const { default: sitemap } = await import("./app/sitemap");
+      const entries = await sitemap();
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+      
+      entries.forEach(entry => {
+        xml += `  <url>\n`;
+        xml += `    <loc>${entry.url}</loc>\n`;
+        if (entry.lastModified) xml += `    <lastmod>${new Date(entry.lastModified).toISOString()}</lastmod>\n`;
+        if (entry.changeFrequency) xml += `    <changefreq>${entry.changeFrequency}</changefreq>\n`;
+        if (entry.priority) xml += `    <priority>${entry.priority}</priority>\n`;
+        xml += `  </url>\n`;
+      });
+      
+      xml += `</urlset>`;
+      res.type('application/xml').send(xml);
+    } catch (error) {
+      res.status(500).send("Error generating sitemap");
     }
   });
 
@@ -126,6 +214,9 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    
+    // Start SEO Background Agents
+    startSearchConsoleSync();
   });
 }
 

@@ -18,12 +18,16 @@ export function ProductCard({ product }: ProductCardProps) {
   const [showQuickView, setShowQuickView] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
 
   // 3D Tilt Effect Setup
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotateX = useTransform(y, [-100, 100], [5, -5]);
   const rotateY = useTransform(x, [-100, 100], [-5, 5]);
+
+  // Handle flip rotation
+  const flipRotateY = isFlipped ? 180 : 0;
 
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -35,82 +39,191 @@ export function ProductCard({ product }: ProductCardProps) {
     x.set(0);
     y.set(0);
     setIsHovered(false);
+    setIsFlipped(false);
   }
 
+  // Default specs if none available
+  const defaultSpecs = [
+    { label: "Category", value: product.category || "Luxury Electronics" },
+    { label: "Supplier", value: product.supplier || "Aura Verified" },
+    { label: "Shipping", value: product.delivery || "Global Express" },
+    { label: "Warranty", value: "Premium Coverage" },
+    { label: "Material", value: "Executive Grade" }
+  ];
+
+  const specsToDisplay = product.specifications || defaultSpecs;
+
   return (
-    <motion.div
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setIsHovered(true)}
+    <div
+      className="perspective-[2000px] h-full w-full"
+      onMouseEnter={() => {
+        setIsHovered(true);
+        setIsFlipped(true);
+      }}
       onMouseLeave={handleMouseLeave}
-      className="bg-[#141414] border border-[#D4AF37]/20 rounded-2xl p-5 backdrop-blur-2xl transition-all duration-300 group overflow-hidden flex flex-col h-full relative hover:border-[#D4AF37]/50 hover:shadow-[0_0_30px_rgba(212,175,55,0.15)]"
     >
-      {/* Header Badges */}
-      <div className="absolute top-8 w-[calc(100%-40px)] left-5 flex justify-between items-start z-30 pointer-events-none">
-        <div className="flex flex-col gap-2">
-          {!product.isDemo && (
-            <span className="bg-[#50C878] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest shadow-[0_0_10px_rgba(80,200,120,0.4)]">
-              Verified Source
-            </span>
-          )}
-          {product.isHot && (
-            <span className="bg-[#D4AF37] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest shadow-[0_0_10px_rgba(212,175,55,0.5)]">
-              HOT
-            </span>
-          )}
-          {product.isNew && (
-            <span className="bg-[#E5E4E2] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest">
-              NEW
-            </span>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 pointer-events-auto">
-          <button 
-            onClick={(e) => { e.preventDefault(); setIsWishlist(!isWishlist); }}
-            className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#D4AF37] transition-all"
-          >
-            <Heart className={`w-4 h-4 ${isWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-white'}`} />
-          </button>
-          <button 
-            onClick={(e) => { 
-                e.preventDefault(); 
-                e.stopPropagation();
-                setShowVideoModal(true); 
-            }}
-            className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#FF6A00] transition-all group/video"
-          >
-            <Play className="w-4 h-4 text-white group-hover/video:text-[#FF6A00] fill-current" />
-          </button>
-        </div>
-      </div>
-
-      {/* Image Container */}
-      <div 
-        className="relative aspect-square bg-[#0A0A0A] rounded-xl mb-5 flex items-center justify-center overflow-hidden border border-white/5 translate-z-[10px] cursor-pointer"
-        onClick={() => setSelectedProductId(product.id)}
+      <motion.div
+        animate={{ rotateY: flipRotateY }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 80, 
+          damping: 20, 
+          mass: 1 
+        }}
+        initial={{ opacity: 0, y: 100, rotateY: 45, scale: 0.8 }}
+        whileInView={{ opacity: 1, y: 0, rotateY: 0, scale: 1 }}
+        viewport={{ once: true, margin: "-50px" }}
+        style={{ rotateX: isFlipped ? 0 : rotateX, rotateY: isFlipped ? 180 : rotateY, transformStyle: "preserve-3d" }}
+        onMouseMove={!isFlipped ? handleMouseMove : undefined}
+        className="w-full h-full relative"
       >
-        <img
-          src={product.images?.[0] || product.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80'}
-          alt={product.title}
-          className={cn(
-            "w-full h-full object-cover transition-all duration-1000 grayscale opacity-70",
-            isHovered ? "scale-110 opacity-100 grayscale-0" : "scale-100"
-          )}
-        />
-        
-        {/* Quick View Target */}
-        <div className={cn(
-          "absolute inset-0 bg-[#0A0A0A]/40 backdrop-blur-sm z-10 flex items-center justify-center transition-all duration-500",
-          isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}>
-          <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-2 border border-[#D4AF37] text-[#D4AF37] font-medium tracking-widest uppercase text-[10px] hover:bg-[#D4AF37] hover:text-black transition-colors rounded backdrop-blur-md whitespace-nowrap">
-            Quick View
+        {/* FRONT SIDE */}
+        <div className="w-full h-full backface-hidden bg-[#141414] border border-[#D4AF37]/20 rounded-2xl p-5 backdrop-blur-2xl transition-all duration-300 group overflow-hidden flex flex-col relative">
+          {/* Header Badges */}
+          <div className="absolute top-8 w-[calc(100%-40px)] left-5 flex justify-between items-start z-30 pointer-events-none">
+            <div className="flex flex-col gap-2">
+              {!product.isDemo && (
+                <span className="bg-[#50C878] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest shadow-[0_0_10px_rgba(80,200,120,0.4)]">
+                  Verified Source
+                </span>
+              )}
+              {product.isHot && (
+                <span className="bg-[#D4AF37] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest shadow-[0_0_10px_rgba(212,175,55,0.5)]">
+                  HOT
+                </span>
+              )}
+              {product.isNew && (
+                <span className="bg-[#E5E4E2] text-black text-[9px] font-bold px-2 py-1 rounded inline-block w-fit uppercase tracking-widest">
+                  NEW
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2 pointer-events-auto">
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsWishlist(!isWishlist); }}
+                className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#D4AF37] transition-all"
+              >
+                <Heart className={`w-4 h-4 ${isWishlist ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-white'}`} />
+              </button>
+              <button 
+                onClick={(e) => { 
+                    e.preventDefault(); 
+                    e.stopPropagation();
+                    setShowVideoModal(true); 
+                }}
+                className="p-2 bg-black/50 backdrop-blur-md rounded-full border border-white/10 hover:border-[#FF6A00] transition-all group/video"
+              >
+                <Play className="w-4 h-4 text-white group-hover/video:text-[#FF6A00] fill-current" />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Container */}
+          <div 
+            className="relative aspect-square bg-[#0A0A0A] rounded-xl mb-5 flex items-center justify-center overflow-hidden border border-white/5 translate-z-[10px] cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setSelectedProductId(product.id); }}
+          >
+            <img
+              src={product.images?.[0] || product.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80'}
+              alt={product.title}
+              className={cn(
+                "w-full h-full object-cover transition-all duration-1000 grayscale opacity-70",
+                isHovered ? "scale-110 opacity-100 grayscale-0" : "scale-100"
+              )}
+            />
+            
+            {/* Quick View Target */}
+            <div className={cn(
+              "absolute inset-0 bg-[#0A0A0A]/40 backdrop-blur-sm z-10 flex items-center justify-center transition-all duration-500",
+              isHovered ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}>
+              <button className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-2 border border-[#D4AF37] text-[#D4AF37] font-medium tracking-widest uppercase text-[10px] hover:bg-[#D4AF37] hover:text-black transition-colors rounded backdrop-blur-md whitespace-nowrap">
+                Quick View
+              </button>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="flex flex-col flex-grow z-20 bg-transparent translate-z-[20px]">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`w-3 h-3 ${i < Math.floor(product.rating || 4) ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-700'}`} />
+                ))}
+                <span className="text-[10px] text-gray-500 ml-1">({product.reviews || Math.floor(Math.random() * 200 + 50)})</span>
+              </div>
+              <div className="text-[#D4AF37] font-semibold tracking-tight text-lg">
+                ${(product.finalPrice || product.price || 0).toFixed(2)}
+              </div>
+            </div>
+            
+            <h3 className="text-sm md:text-base font-bold font-sans tracking-tight text-white mb-4 line-clamp-2">{product.title}</h3>
+            
+            <div className="mt-auto space-y-3">
+              <motion.button 
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  addToCart(product);
+                  setIsAdded(true);
+                  setTimeout(() => setIsAdded(false), 2000);
+                }}
+                className={cn(
+                  "w-full h-12 font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 rounded-lg transition-all",
+                  isAdded ? "bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]" : "gold-gradient text-black hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                )}
+              >
+                {isAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+                {isAdded ? "Added" : "Add to Cart"}
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        {/* BACK SIDE */}
+        <div 
+          className="absolute inset-0 w-full h-full backface-hidden bg-[#0F0F0F] border border-[#D4AF37]/40 rounded-2xl p-6 backdrop-blur-3xl overflow-hidden flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(212,175,55,0.1)]"
+          style={{ transform: "rotateY(180deg)" }}
+        >
+          {/* Subtle logo background */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-5 pointer-events-none">
+             <span className="text-[180px] font-display font-black text-white">A</span>
+          </div>
+
+          <h4 className="text-[#D4AF37] text-[10px] uppercase tracking-[0.5em] font-black mb-6">Specifications</h4>
+          
+          <div className="w-full space-y-4 mb-8">
+            {specsToDisplay.map((spec, idx) => (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, x: -20 }}
+                animate={isFlipped ? { opacity: 1, x: 0 } : {}}
+                transition={{ delay: 0.2 + idx * 0.1 }}
+                className="flex items-center justify-between border-b border-white/5 pb-2 last:border-0"
+              >
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">{spec.label}</span>
+                <span className="text-[11px] text-white font-medium">{spec.value}</span>
+              </motion.div>
+            ))}
+          </div>
+
+          <button 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setSelectedProductId(product.id);
+            }}
+            className="w-full py-3 bg-white/5 border border-[#D4AF37]/30 text-white font-bold text-[10px] uppercase tracking-[0.3em] rounded-full hover:bg-[#D4AF37] hover:text-black transition-all"
+          >
+            Full Details
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Video Modal */}
+      {/* Video Modal - Extracted from flip logic */}
       <AnimatePresence>
+        {/** Video modal remains outside the flipping div to prevent issues **/}
         {showVideoModal && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -148,42 +261,6 @@ export function ProductCard({ product }: ProductCardProps) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Details */}
-      <div className="flex flex-col flex-grow z-20 bg-transparent translate-z-[20px]">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className={`w-3 h-3 ${i < Math.floor(product.rating || 4) ? 'fill-[#D4AF37] text-[#D4AF37]' : 'text-gray-700'}`} />
-            ))}
-            <span className="text-[10px] text-gray-500 ml-1">({product.reviews || Math.floor(Math.random() * 200 + 50)})</span>
-          </div>
-          <div className="text-[#D4AF37] font-semibold tracking-tight text-lg">
-            ${(product.finalPrice || product.price || 0).toFixed(2)}
-          </div>
-        </div>
-        
-        <h3 className="text-sm md:text-base font-bold font-sans tracking-tight text-white mb-4 line-clamp-2">{product.title}</h3>
-        
-        <div className="mt-auto space-y-3">
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={(e) => {
-              e.preventDefault();
-              addToCart(product);
-              setIsAdded(true);
-              setTimeout(() => setIsAdded(false), 2000);
-            }}
-            className={cn(
-              "w-full h-12 font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 rounded-lg transition-all",
-              isAdded ? "bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]" : "gold-gradient text-black hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
-            )}
-          >
-            {isAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
-            {isAdded ? "Added to Cart" : "Add to Cart"}
-          </motion.button>
-        </div>
-      </div>
-    </motion.div>
+    </div>
   );
 }

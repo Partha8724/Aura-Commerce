@@ -42,7 +42,16 @@ export function ProductFlipCard({ product }: ProductFlipCardProps) {
   };
 
   return (
-    <div 
+    <motion.div 
+      initial={{ opacity: 0, y: 150, rotateZ: -10, scale: 0.5 }}
+      whileInView={{ opacity: 1, y: 0, rotateZ: 0, scale: 1 }}
+      viewport={{ once: true }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 80, 
+        damping: 15,
+        delay: Math.random() * 0.3
+      }}
       ref={cardRef}
       className="relative w-full aspect-[4/5] perspective-[2000px] cursor-pointer group"
       onMouseMove={handleMouseMove}
@@ -136,6 +145,6 @@ export function ProductFlipCard({ product }: ProductFlipCardProps) {
           </div>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

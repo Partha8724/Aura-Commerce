@@ -36,6 +36,10 @@ export interface Settings {
   cjApiKey: string;
   cjAccessToken: string;
   cjConnected: boolean;
+  aliAppKey: string;
+  aliAppSecret: string;
+  aliAccessToken: string;
+  aliConnected: boolean;
   adminName: string;
   adminEmail: string;
   themeColor: string;
@@ -150,6 +154,10 @@ export const useStore = create<AppState>()(
         cjApiKey: '',
         cjAccessToken: '',
         cjConnected: false,
+        aliAppKey: '',
+        aliAppSecret: '',
+        aliAccessToken: '',
+        aliConnected: false,
         adminName: '',
         adminEmail: '',
         themeColor: '#D4AF37'

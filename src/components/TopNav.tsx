@@ -64,13 +64,49 @@ export function TopNav() {
         <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
           
           {/* Logo */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => handleTabClick('shop')}>
-            <div className="w-10 h-10 border border-[#D4AF37] rounded flex items-center justify-center relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37] to-[#8C6D23] opacity-20 group-hover:opacity-100 transition-opacity" />
+          <motion.div 
+            className="flex items-center gap-3 cursor-pointer group" 
+            onClick={() => handleTabClick('shop')}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <motion.div 
+              animate={{ 
+                borderColor: ["#D4AF37", "#F4D03F", "#D4AF37"],
+                boxShadow: [
+                  "0 0 0px rgba(212,175,55,0)",
+                  "0 0 15px rgba(212,175,55,0.3)",
+                  "0 0 0px rgba(212,175,55,0)"
+                ]
+              }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              className="w-10 h-10 border border-[#D4AF37] rounded flex items-center justify-center relative overflow-hidden"
+            >
+              <motion.div 
+                animate={{ 
+                  opacity: [0.2, 0.5, 0.2],
+                  rotate: [0, 90, 180, 270, 360]
+                }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37] to-[#8C6D23]" 
+              />
               <span className="font-display font-black text-xl text-[#D4AF37] relative z-10">A</span>
-            </div>
-            <span className="text-xl font-display font-bold tracking-[0.2em] uppercase hidden sm:block gold-text-shadow">AURA</span>
-          </div>
+            </motion.div>
+            <motion.span 
+              animate={{ 
+                color: ["#FFFFFF", "#D4AF37", "#FFFFFF"],
+                textShadow: [
+                  "0 0 0px rgba(255,255,255,0)",
+                  "0 0 10px rgba(212,175,55,0.5)",
+                  "0 0 0px rgba(255,255,255,0)"
+                ]
+              }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="text-xl font-display font-bold tracking-[0.2em] uppercase hidden sm:block gold-text-shadow"
+            >
+              AURA
+            </motion.span>
+          </motion.div>
 
           {/* Desktop Tabs */}
           <div className="hidden lg:flex items-center gap-2 bg-[#1A1A1A]/80 backdrop-blur-md p-1 border border-[#D4AF37]/20 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.05)]">
