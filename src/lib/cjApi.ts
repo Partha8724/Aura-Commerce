@@ -37,11 +37,13 @@ export class CJDropshippingAPI {
         headers
       });
       
+      const responseText = await response.text();
       let data;
       try {
-        data = await response.json();
+        data = JSON.parse(responseText);
       } catch (e) {
-        return { success: false, error: 'Response is not valid JSON. Possible proxy or API issue.' };
+        console.error("CJ API check error:", response.status, responseText);
+        return { success: false, error: `Response is not valid JSON. Status: ${response.status}. Possible proxy or API issue.` };
       }
       
       if (data.code === 200) {

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, ChevronLeft, ChevronRight, Star, 
   ShoppingCart, Heart, Shield, Undo2, 
-  Truck, HelpCircle, Share2, ZoomIn, Info
+  Truck, HelpCircle, Share2, ZoomIn, Info, Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Product } from '../types';
@@ -103,10 +103,13 @@ export function ProductDetail({ productId }: ProductDetailProps) {
 
   const finalPrice = selectedVariant?.price || product.finalPrice || product.price || 0;
   const stock = selectedVariant?.stock ?? product.stock ?? 100;
+  const [isAdded, setIsAdded] = useState(false);
 
   const handleAddToCart = () => {
     // Ideally map variant to item, here we just use the product
     addToCart(product);
+    setIsAdded(true);
+    setTimeout(() => setIsAdded(false), 2000);
   };
 
   return (
@@ -361,13 +364,18 @@ export function ProductDetail({ productId }: ProductDetailProps) {
 
           {/* Actions */}
           <div className="flex flex-col gap-3 mt-4">
-            <button 
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
               onClick={handleAddToCart}
-              className="w-full py-4 rounded-xl text-black font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
-              style={{ background: `linear-gradient(135deg, ${settings.themeColor}, #FFF)` }}
+              className={cn(
+                "w-full py-4 rounded-xl font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02]",
+                isAdded ? "bg-green-500 text-white" : "text-black"
+              )}
+              style={!isAdded ? { background: `linear-gradient(135deg, ${settings.themeColor}, #FFF)` } : undefined}
             >
-              <ShoppingCart className="w-5 h-5" /> Add to Cart
-            </button>
+              {isAdded ? <Check className="w-5 h-5 " /> : <ShoppingCart className="w-5 h-5" />} 
+              {isAdded ? "Added to Cart" : "Add to Cart"}
+            </motion.button>
             <div className="flex gap-3">
               <button className="flex-1 py-4 rounded-xl bg-transparent border border-white/20 text-white font-bold uppercase tracking-widest text-sm hover:bg-white/5 transition-all">
                 Buy Now

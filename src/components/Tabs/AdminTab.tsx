@@ -6,7 +6,7 @@ import { Product } from '../../types';
 import { 
   BarChart3, Package, Bot, ShoppingCart, DollarSign, CreditCard, 
   Users, Tag, LayoutDashboard, Link2, Settings, UserCircle,
-  Play, StopCircle, RefreshCw
+  Play, StopCircle, RefreshCw, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -405,16 +405,20 @@ function BotsSection() {
     }
   };
 
+  const [isScanning, setIsScanning] = useState(false);
+
   const runPriceScan = () => {
     if (products.length === 0) {
       addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: 'Scan complete. No products found to verify.', date: new Date().toLocaleTimeString(), type: 'warning' });
       return;
     }
     
+    setIsScanning(true);
     addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: `Scanning ${products.length} products for supplier updates...`, date: new Date().toLocaleTimeString(), type: 'info' });
     
     setTimeout(() => {
       addBotLog({ id: Math.random().toString(), bot: 'Price Scanner', message: 'All prices are synced with current supplier margins.', date: new Date().toLocaleTimeString(), type: 'success' });
+      setIsScanning(false);
     }, 1500);
   };
 
@@ -463,9 +467,14 @@ function BotsSection() {
           <button 
             onClick={handleImport}
             disabled={importStatus !== null || (!importUrl && !settings.cjConnected)}
-            className="w-full py-4 gold-gradient text-black font-bold uppercase tracking-widest text-sm rounded-xl disabled:opacity-50"
+            className="w-full py-4 gold-gradient text-black font-bold uppercase tracking-widest text-sm rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {importStatus === 'connecting' ? 'Importing...' : importStatus === 'success' ? 'Product Live!' : (settings.cjConnected && !importUrl) ? 'Auto-Sync Dropship Products' : 'Import Product'}
+            {importStatus === 'connecting' ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Importing...
+              </>
+            ) : importStatus === 'success' ? 'Product Live!' : (settings.cjConnected && !importUrl) ? 'Auto-Sync Dropship Products' : 'Import Product'}
           </button>
         </div>
 
@@ -512,9 +521,11 @@ function BotsSection() {
 
           <button 
              onClick={runPriceScan}
-             className="w-full py-4 bg-transparent border border-[#222222] hover:border-[#D4AF37] text-white font-bold uppercase tracking-widest text-sm rounded-xl flex items-center justify-center gap-2 transition-colors"
+             disabled={isScanning}
+             className="w-full py-4 bg-transparent border border-[#222222] hover:border-[#D4AF37] text-white font-bold uppercase tracking-widest text-sm rounded-xl flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className="w-4 h-4" /> Run Scan Now
+            {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isScanning ? 'Scanning...' : 'Run Scan Now'}
           </button>
         </div>
 
@@ -582,12 +593,14 @@ function ConnectionsSection() {
 
   const handleConnectCJ = async () => {
     // Client-side Validation
-    if (!cjKey || !cjAccess) {
+    const k = cjKey.trim();
+    const a = cjAccess.trim();
+    if (!k || !a) {
       setStatus('err: Please enter both API Key and Access Token');
       return;
     }
 
-    if (cjKey.length < 10) {
+    if (k.length < 10) {
       setStatus('err: API Key is too short (min 10 characters)');
       quickLog('⚠️ Validation Failed: API Key must be at least 10 characters.');
       return;
@@ -595,7 +608,7 @@ function ConnectionsSection() {
 
     // JWT structure check (header.payload.signature)
     // CJ Tokens often have a prefix like "API@...:", so we check the part after the colon or the whole string
-    const tokenPart = cjAccess.includes(':') ? cjAccess.split(':')[1] : cjAccess;
+    const tokenPart = a.includes(':') ? a.split(':')[1] : a;
     const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
     
     if (!jwtRegex.test(tokenPart)) {
@@ -609,11 +622,11 @@ function ConnectionsSection() {
     quickLog('⚡ Manual Connection Started...');
     
     try {
-      const response = await cjApi.checkDirectConnection(cjAccess, cjKey);
+      const response = await cjApi.checkDirectConnection(a, k);
       if (response.success) {
-        cjApi.apiKey = cjKey;
-        cjApi.accessToken = cjAccess; // Also set it on the instance
-        updateSettings({ cjApiKey: cjKey, cjAccessToken: cjAccess, cjConnected: true });
+        cjApi.apiKey = k;
+        cjApi.accessToken = a; // Also set it on the instance
+        updateSettings({ cjApiKey: k, cjAccessToken: a, cjConnected: true });
         setStatus('Connected successfully!');
         quickLog('✅ CJ DROPSHIPPING CONNECTED SUCCESSFULLY!');
       } else {
@@ -646,7 +659,7 @@ function ConnectionsSection() {
     quickLog('🧪 Testing connection...');
     try {
       if (!settings.cjAccessToken) throw new Error('No access token found.');
-      const response = await cjApi.checkDirectConnection(settings.cjAccessToken, settings.cjApiKey);
+      const response = await cjApi.checkDirectConnection(settings.cjAccessToken.trim(), settings.cjApiKey?.trim());
       if (response.success) {
         setStatus('Connection OK');
         quickLog('✅ Connection is working perfectly!');
@@ -724,16 +737,19 @@ function ConnectionsSection() {
                <button 
                  onClick={handleConnectCJ}
                  disabled={isLoading}
-                 className="px-6 py-3 bg-[#FF6A00] text-white font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 disabled:opacity-50"
+                 className="px-6 py-3 bg-[#FF6A00] text-white font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 disabled:opacity-50 flex items-center gap-2"
                >
+                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                  {isLoading ? 'Connecting...' : 'Connect to CJ'}
                </button>
              ) : (
                <>
                  <button 
                    onClick={checkConnection}
-                   className="px-6 py-3 border border-[#50C878] text-[#50C878] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#50C878]/10"
+                   disabled={status === 'Testing connection...'}
+                   className="px-6 py-3 border border-[#50C878] text-[#50C878] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#50C878]/10 disabled:opacity-50 flex items-center gap-2"
                  >
+                   {status === 'Testing connection...' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                    Test Connection
                  </button>
                  <button 
@@ -1549,8 +1565,9 @@ function CJManagementSection() {
             <button 
               onClick={handleFetchProduct}
               disabled={isLoading || !productUrl}
-              className="w-full py-3 bg-[#FF6A00] text-white font-bold uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-[#FF6A00] text-white font-bold uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
               {isLoading ? 'Processing...' : 'Fetch & Import Product'}
             </button>
           </div>
@@ -1568,8 +1585,9 @@ function CJManagementSection() {
             <button 
               onClick={handleTrackOrder}
               disabled={isLoading || !orderId}
-              className="w-full py-3 border border-[#FF6A00] text-[#FF6A00] font-bold uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/10 transition-colors disabled:opacity-50"
+              className="w-full py-3 border border-[#FF6A00] text-[#FF6A00] font-bold uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
               {isLoading ? 'Checking...' : 'Track Order'}
             </button>
           </div>

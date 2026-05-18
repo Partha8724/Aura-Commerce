@@ -13,6 +13,17 @@ export function TopNav() {
   
   const { activeTab, setActiveTab, cart, stats, user, setUser } = useStore();
 
+  const [bouncing, setBouncing] = useState(false);
+  const totalItems = cart.reduce((acc, item) => acc + item.cartQuantity, 0);
+
+  useEffect(() => {
+    if (totalItems > 0) {
+      setBouncing(true);
+      const t = setTimeout(() => setBouncing(false), 300);
+      return () => clearTimeout(t);
+    }
+  }, [totalItems]);
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
@@ -99,13 +110,17 @@ export function TopNav() {
               onClick={() => setCartOpen(true)}
               className="relative text-[#D4AF37] hover:text-[#F4D03F] transition-all duration-300 p-2 bg-[#D4AF37]/10 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:bg-[#D4AF37]/20"
             >
-              <ShoppingCart className="w-5 h-5" />
-              {cart.length > 0 && (
+              <motion.div animate={bouncing ? { scale: [1, 1.2, 1], rotate: [0, -10, 10, 0] } : {}} transition={{ duration: 0.3 }}>
+                <ShoppingCart className="w-5 h-5" />
+              </motion.div>
+              {totalItems > 0 && (
                 <motion.span 
-                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  initial={{ scale: 0 }} 
+                  animate={bouncing ? { scale: [1, 1.3, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.3 }}
                   className="absolute -top-1 -right-1 gold-gradient text-black text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold shadow-md"
                 >
-                  {cart.length}
+                  {totalItems}
                 </motion.span>
               )}
             </button>

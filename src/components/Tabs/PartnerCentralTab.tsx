@@ -25,7 +25,7 @@ export function PartnerCentralTab() {
   });
 
   const handle1ClickBuy = (product: any) => {
-    addToCart(product);
+    addToCart(product as any);
     // Simulate opening checkout immediately
     alert(`Initiating 1-Click Buy for ${product.title}...`);
   };
@@ -96,7 +96,7 @@ export function PartnerCentralTab() {
                   1-Click Buy
                 </button>
                 <button 
-                  onClick={() => addToCart(selectedProduct)}
+                  onClick={() => addToCart(selectedProduct as any)}
                   className="w-full md:w-auto bg-zinc-900 border border-zinc-800 text-white px-8 py-4 rounded-full font-semibold text-lg flex items-center justify-center gap-2 hover:bg-zinc-800 transition-colors hover:scale-105 active:scale-95 duration-200"
                 >
                   <ShoppingBag className="w-5 h-5" />
@@ -113,7 +113,7 @@ export function PartnerCentralTab() {
               className="relative w-full aspect-video max-h-[600px] mx-auto rounded-3xl overflow-hidden bg-zinc-900"
             >
               <img 
-                src={selectedProduct.imageUrl || selectedProduct.images?.[0] || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=1600&q=80'} 
+                src={(selectedProduct as any).imageUrl || (selectedProduct as any).images?.[0] || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=1600&q=80'} 
                 alt={selectedProduct.title}
                 className="w-full h-full object-cover object-center"
               />

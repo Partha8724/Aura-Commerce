@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'motion/react';
-import { Heart, Star, ShoppingCart } from 'lucide-react';
+import { Heart, Star, ShoppingCart, Check } from 'lucide-react';
 import { Product } from '../types';
 import { cn } from '../lib/utils';
 import { useStore } from '../store/useStore';
@@ -16,6 +16,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const setSelectedProductId = useStore(state => state.setSelectedProductId);
   
   const [showQuickView, setShowQuickView] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
 
   // 3D Tilt Effect Setup
   const x = useMotionValue(0);
@@ -112,15 +113,22 @@ export function ProductCard({ product }: ProductCardProps) {
         <h3 className="text-sm md:text-base font-bold font-sans tracking-tight text-white mb-4 line-clamp-2">{product.title}</h3>
         
         <div className="mt-auto space-y-3">
-          <button 
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
             onClick={(e) => {
               e.preventDefault();
               addToCart(product);
+              setIsAdded(true);
+              setTimeout(() => setIsAdded(false), 2000);
             }}
-            className="w-full h-12 gold-gradient text-black font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all"
+            className={cn(
+              "w-full h-12 font-bold uppercase tracking-widest text-xs flex items-center justify-center gap-2 rounded-lg transition-all",
+              isAdded ? "bg-green-500 text-white shadow-[0_0_20px_rgba(34,197,94,0.4)]" : "gold-gradient text-black hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+            )}
           >
-            <ShoppingCart className="w-4 h-4" /> Add to Cart
-          </button>
+            {isAdded ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+            {isAdded ? "Added to Cart" : "Add to Cart"}
+          </motion.button>
         </div>
       </div>
     </motion.div>
