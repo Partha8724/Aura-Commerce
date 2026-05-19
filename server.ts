@@ -36,15 +36,26 @@ async function startServer() {
        return res.status(400).json({ code: 400, message: "Missing CJ endpoint path after /api/cj-proxy/" });
     }
 
-    // Ensure cjPath includes 'v1/' prefix if not already present
-    // Most CJ 2.0 endpoints are under /v1/
-    if (!cjPath.startsWith('v1/')) {
+    // Ensure cjPath includes 'v1/' prefix if not already present and not using custom base that might have it
+    if (!cjPath.startsWith('v1/') && !process.env.CJ_BASE_URL?.includes('/v1')) {
       cjPath = 'v1/' + cjPath;
     }
 
     // Reconstruct the full target URL
     const queryString = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
-    const targetUrl = `https://developers.cjdropshipping.com/api2.0/${cjPath}${queryString}`;
+    const baseUrl = process.env.CJ_BASE_URL || "https://developers.cjdropshipping.com/api2.0/v1";
+    
+    // If baseUrl already ends with v1, we should be careful not to add it again
+    let finalBase = baseUrl;
+    if (finalBase.endsWith('/')) finalBase = finalBase.slice(0, -1);
+    
+    // If we already added v1/ to cjPath but finalBase has /v1 at the end, remove it from cjPath
+    let adjustedPath = cjPath;
+    if (finalBase.includes('/v1') && adjustedPath.startsWith('v1/')) {
+        adjustedPath = adjustedPath.substring(3);
+    }
+    
+    const targetUrl = `${finalBase}/${adjustedPath}${queryString}`;
     
     console.log(`[CJ Proxy] ${req.method} ${req.originalUrl} -> ${targetUrl}`);
     

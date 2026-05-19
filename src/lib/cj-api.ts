@@ -168,7 +168,7 @@ export class CJApiClient {
   /**
    * Authentication
    */
-  async authenticate(email: string, apiKey: string): Promise<CJAuthResponse> {
+  async getAccessToken(email: string, apiKey: string): Promise<CJAuthResponse> {
     this.apiKey = apiKey;
     const data: CJAuthResponse = await this.request('/authentication/getAccessToken', {
       method: 'POST',
@@ -179,6 +179,10 @@ export class CJApiClient {
       this.updateCache(data.data);
     }
     return data;
+  }
+
+  async authenticate(email: string, apiKey: string): Promise<CJAuthResponse> {
+    return this.getAccessToken(email, apiKey);
   }
 
   /**
@@ -296,12 +300,14 @@ export class CJApiClient {
    */
   async healthCheck(): Promise<CJHealthCheck> {
     try {
-      const data = await this.getCategories();
+      // Use product/list which is generally more stable than category endpoint
+      const data: any = await this.getProducts(1, 1);
+      const isOk = data.code === 200 || data.result === true;
       return {
-        status: data.code === 200 ? 'healthy' : 'unhealthy',
+        status: isOk ? 'healthy' : 'unhealthy',
         connection: true,
-        tokenValid: true,
-        message: data.message || 'Connected',
+        tokenValid: isOk,
+        message: data.message || (isOk ? 'Connection active' : 'API returned error'),
         timestamp: new Date().toISOString()
       };
     } catch (e: any) {

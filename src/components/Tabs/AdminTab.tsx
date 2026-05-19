@@ -6,7 +6,7 @@ import { Product } from '../../types';
 import { 
   BarChart3, Package, Bot, ShoppingCart, DollarSign, CreditCard, 
   Users, Tag, LayoutDashboard, Link2, Settings, UserCircle,
-  Play, StopCircle, RefreshCw, Loader2
+  Play, StopCircle, RefreshCw, Loader2, CheckCircle2, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -537,283 +537,280 @@ function BotsSection() {
 function ConnectionsSection() {
   const { settings, updateSettings } = useStore();
   const [cjKey, setCjKey] = useState(settings.cjApiKey || '');
-  const [cjAccess, setCjAccess] = useState(settings.cjAccessToken || '');
-  const [status, setStatus] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<{ type: 'success' | 'error' | 'loading' | null, message: string }>({ type: null, message: '' });
   const [log, setLog] = useState<string[]>([]);
 
   useEffect(() => {
-    // Check if server already has keys
+    // Proactive detection of existing server-side keys
     const detect = async () => {
-      const hasKeys = await cjApi.detectConnection();
-      if (hasKeys && !settings.cjConnected) {
-        updateSettings({ cjConnected: true });
-        quickLog('🛡️ Secure Server Connection Detected');
-      }
+      try {
+        const healthy = await cjApi.detectConnection();
+        if (healthy && !settings.cjConnected) {
+          updateSettings({ cjConnected: true });
+          quickLog('🛡️ Secure Server Connection Detected');
+        }
+      } catch (e) {}
     };
     detect();
 
-    // Initialize cjApi from settings
-    if (settings.cjAccessToken) {
-      cjApi.accessToken = settings.cjAccessToken;
-      cjApi.apiKey = settings.cjApiKey;
-    }
-
+    // Listen for events from the Quick Connect iframe
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'CJ_CONNECTED') {
-        const { apiKey, accessToken } = event.data.payload;
-        cjApi.apiKey = apiKey;
-        cjApi.accessToken = accessToken;
-        setCjKey(apiKey);
-        setCjAccess(accessToken);
-        updateSettings({ cjApiKey: apiKey, cjAccessToken: accessToken, cjConnected: true });
-        setStatus('Successfully connected to CJ Dropshipping!');
-        quickLog('✅ Connection received via Quick Connect');
-        setTimeout(() => setStatus(null), 3000);
+        const { apiKey } = event.data.payload;
+        // The iframe might have its own token handling, but we sync the key
+        updateSettings({ cjApiKey: apiKey, cjConnected: true });
+        setStatus({ type: 'success', message: 'Sync received from Quick Connect mesh.' });
+        quickLog('✅ Connection received via Mesh');
       } else if (event.data?.type === 'CJ_DISCONNECTED') {
-        cjApi.accessToken = null;
-        cjApi.apiKey = null;
-        setCjKey('');
-        setCjAccess('');
-        updateSettings({ cjApiKey: '', cjAccessToken: '', cjConnected: false });
-        setStatus('Disconnected from CJ Dropshipping.');
-        quickLog('🔌 Disconnected from CJ Dropshipping');
-        setTimeout(() => setStatus(null), 3000);
+        updateSettings({ cjConnected: false, cjApiKey: '' });
+        setStatus({ type: 'success', message: 'Mesh connection severed.' });
+        quickLog('🔌 Mesh Disconnected');
       }
     };
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [settings, updateSettings]);
+  }, [settings.cjConnected, updateSettings]);
 
   const quickLog = (msg: string) => {
     const time = new Date().toLocaleTimeString();
-    setLog(prev => [...prev, `[${time}] ${msg}`]);
+    setLog(prev => [`[${time}] ${msg}`, ...prev].slice(0, 50));
   };
 
   const handleConnectCJ = async () => {
-    // Client-side Validation
     const k = cjKey.trim();
-    const a = cjAccess.trim();
-    if (!k || !a) {
-      setStatus('err: Please enter both API Key and Access Token');
+    if (!k) {
+      setStatus({ type: 'error', message: 'Please enter your CJ API Key' });
       return;
     }
 
-    if (k.length < 10) {
-      setStatus('err: API Key is too short (min 10 characters)');
-      quickLog('⚠️ Validation Failed: API Key must be at least 10 characters.');
-      return;
-    }
-
-    // Relaxed JWT check: CJ Tokens vary greatly, some are hybrid.
-    // We'll just verify it's a non-trivial string or follows basic multi-part structure
-    const tokenPart = a.includes(':') ? a.split(':')[1] : a;
-    
-    if (tokenPart.length < 20) {
-      setStatus('err: Invalid Access Token format. It seems too short.');
-      quickLog('⚠️ Validation Failed: Access Token is too short.');
-      return;
-    }
-
-    setIsLoading(true);
-    setStatus('Connecting to CJ...');
-    quickLog('⚡ Manual Connection Started...');
+    setStatus({ type: 'loading', message: 'Verifying connection via Aura Gateway...' });
+    quickLog('⚡ Connection Request Initiated...');
     
     try {
-      const response = await cjApi.checkDirectConnection(a, k);
-      if (response.success) {
+      // We call our own robust server route instead of direct brittle fetch
+      const response = await fetch('/api/cj/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: k })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
         cjApi.apiKey = k;
-        cjApi.accessToken = a; // Also set it on the instance
-        updateSettings({ cjApiKey: k, cjAccessToken: a, cjConnected: true });
-        setStatus('Connected successfully!');
-        quickLog('✅ CJ DROPSHIPPING CONNECTED SUCCESSFULLY!');
+        updateSettings({ cjApiKey: k, cjConnected: true });
+        setStatus({ type: 'success', message: 'Aura successfully connected to your CJ account!' });
+        quickLog('✅ CONNECTION ESTABLISHED SUCCESSFULLY');
       } else {
-        setStatus('err: ' + response.message);
-        quickLog(`❌ Connection Error: ${response.message}`);
+        setStatus({ type: 'error', message: result.message || 'Verification failed.' });
+        quickLog(`❌ Connection Denied: ${result.message}`);
         updateSettings({ cjConnected: false });
       }
     } catch (err: any) {
-      setStatus('err: Connection failed.');
+      setStatus({ type: 'error', message: 'Aura Gateway unreachable. Check network.' });
       quickLog(`❌ Network Error: ${err.message}`);
     }
-    setIsLoading(false);
-    setTimeout(() => setStatus(null), 3000);
+    
+    setTimeout(() => setStatus({ type: null, message: '' }), 5000);
   };
 
   const handleDisconnectCJ = () => {
-    if (confirm('Are you sure you want to disconnect?')) {
+    if (confirm('Deactivate CJ automation?')) {
       cjApi.accessToken = null;
-      updateSettings({ cjConnected: false, cjAccessToken: '', cjApiKey: '' });
+      updateSettings({ cjConnected: false, cjApiKey: '' });
       setCjKey('');
-      setCjAccess('');
-      setStatus('Disconnected.');
-      quickLog('🔌 Disconnected from CJ');
-      setTimeout(() => setStatus(null), 3000);
+      setStatus({ type: 'success', message: 'All CJ automation protocols deactivated.' });
+      quickLog('🔌 Disconnected');
+      setTimeout(() => setStatus({ type: null, message: '' }), 3000);
     }
   };
 
   const checkConnection = async () => {
-    setStatus('Testing connection...');
-    quickLog('🧪 Testing connection...');
+    setStatus({ type: 'loading', message: 'Testing protocol health...' });
+    quickLog('🧪 Running health check...');
     try {
-      if (!settings.cjAccessToken) throw new Error('No access token found.');
-      const response = await cjApi.checkDirectConnection(settings.cjAccessToken.trim(), settings.cjApiKey?.trim());
-      if (response.success) {
-        setStatus('Connection OK');
-        quickLog('✅ Connection is working perfectly!');
+      const health = await cjApi.healthCheck();
+      if (health.status === 'healthy') {
+        setStatus({ type: 'success', message: 'System Healthy. All protocols active.' });
+        quickLog('✅ Health Check: PASSED');
       } else {
-        setStatus('err: ' + response.message);
-        quickLog(`⚠️ Error: ${response.message}`);
+        setStatus({ type: 'error', message: health.message });
+        quickLog(`⚠️ Health Check: FAILED (${health.message})`);
       }
     } catch(err: any) {
-      setStatus('err: Connection test failed.');
-      quickLog(`❌ Test failed: ${err.message}`);
+      setStatus({ type: 'error', message: 'Health check failed.' });
+      quickLog(`❌ Protocol Error: ${err.message}`);
     }
-    setTimeout(() => setStatus(null), 3000);
+    setTimeout(() => setStatus({ type: null, message: '' }), 5000);
   };
 
   return (
-    <div className="space-y-8 max-w-3xl border border-transparent">
-      <div>
-        <h2 className="text-3xl font-display font-bold text-white mb-2">Platform Connections</h2>
-        <p className="text-gray-400">Configure your dropshipping & payment APIs.</p>
+    <div className="space-y-8 max-w-4xl">
+      <div className="flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-display font-bold text-white mb-2">Platform Connections</h2>
+          <p className="text-gray-400">Manage secure bridges to global supply chains.</p>
+        </div>
         <AnimatePresence>
-          {status && (
+          {status.type && (
             <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className={`mt-4 p-3 rounded font-bold border ${status.startsWith('err:') ? 'bg-[#DC143C]/10 text-[#DC143C] border-[#DC143C]/20' : 'bg-[#50C878]/10 text-[#50C878] border-[#50C878]/20'}`}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className={`p-3 rounded-lg flex items-center gap-2 border ${
+                status.type === 'error' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                status.type === 'loading' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                'bg-green-500/10 text-green-500 border-green-500/20'
+              }`}
             >
-              {status.replace('err: ', '')}
+              {status.type === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}
+              {status.type === 'success' && <CheckCircle2 className="w-4 h-4" />}
+              {status.type === 'error' && <AlertCircle className="w-4 h-4" />}
+              <span className="text-sm font-bold tracking-tight">{status.message}</span>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* CJ Dropshipping Manual Integration */}
-      <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="p-6 border-b border-white/5">
-           <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold flex items-center gap-3">
-                <div className="w-8 h-8 bg-[#FF6A00] rounded flex items-center justify-center text-white font-bold">CJ</div>
-                CJ Dropshipping Integration
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${settings.cjConnected ? 'bg-[#50C878] animate-pulse' : 'bg-gray-600'}`} />
-                <span className={`text-xs font-bold uppercase tracking-wider ${settings.cjConnected ? 'text-[#50C878]' : 'text-gray-500'}`}>
-                  {settings.cjConnected ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-           </div>
-           
-           <div className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">API Key</label>
-                <input 
-                  type="password" 
-                  value={cjKey}
-                  onChange={e => setCjKey(e.target.value)}
-                  placeholder="Paste your CJ API Key"
-                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#FF6A00] outline-none" 
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Access Token</label>
-                <textarea 
-                  value={cjAccess}
-                  onChange={e => setCjAccess(e.target.value)}
-                  placeholder="Paste your CJ Access Token"
-                  rows={4}
-                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#FF6A00] outline-none resize-none" 
-                />
-              </div>
-           </div>
-           
-           <div className="mt-6 flex flex-wrap gap-4">
-             {!settings.cjConnected ? (
-               <button 
-                 onClick={handleConnectCJ}
-                 disabled={isLoading}
-                 className="px-6 py-3 bg-[#FF6A00] text-white font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#FF6A00]/80 disabled:opacity-50 flex items-center gap-2"
-               >
-                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                 {isLoading ? 'Connecting...' : 'Connect to CJ'}
-               </button>
-             ) : (
-               <>
-                 <button 
-                   onClick={checkConnection}
-                   disabled={status === 'Testing connection...'}
-                   className="px-6 py-3 border border-[#50C878] text-[#50C878] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#50C878]/10 disabled:opacity-50 flex items-center gap-2"
-                 >
-                   {status === 'Testing connection...' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                   Test Connection
-                 </button>
-                 <button 
-                   onClick={handleDisconnectCJ}
-                   className="px-6 py-3 border border-[#DC143C] text-[#DC143C] font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-[#DC143C]/10"
-                 >
-                   Disconnect
-                 </button>
-               </>
-             )}
-           </div>
-        </div>
-
-        {/* Console/Log Output */}
-        {(log.length > 0 || isLoading) && (
-          <div className="bg-black/50 p-4 font-mono text-xs border-t border-white/5 max-h-40 overflow-y-auto">
-             {log.map((msg, i) => (
-                <div key={i} className={msg.includes('❌') || msg.includes('Error') ? 'text-red-400' : msg.includes('✅') ? 'text-green-400' : 'text-gray-400'}>
-                   {msg}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Connection Form */}
+        <div className="lg:col-span-2 bg-[#141414] border border-white/5 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="p-8 border-b border-white/5">
+             <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-[#FF6A00]/50 transition-colors">
+                    <Package className="w-6 h-6 text-[#FF6A00]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">CJ Dropshipping</h3>
+                    <p className="text-xs text-gray-500 uppercase font-bold tracking-widest">Master Supplier</p>
+                  </div>
                 </div>
-             ))}
-             {isLoading && <div className="text-[#FF6A00] animate-pulse">Processing...</div>}
+                <div className="flex items-center gap-3 bg-black/40 px-4 py-2 rounded-full border border-white/5">
+                  <span className={`w-2 h-2 rounded-full ${settings.cjConnected ? 'bg-[#50C878] shadow-[0_0_10px_#50C878]' : 'bg-gray-600'}`} />
+                  <span className={`text-[10px] font-bold uppercase tracking-[2px] ${settings.cjConnected ? 'text-[#50C878]' : 'text-gray-500'}`}>
+                    {settings.cjConnected ? 'Protocol Active' : 'Offline'}
+                  </span>
+                </div>
+             </div>
+             
+             <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[10px] text-gray-500 uppercase tracking-[3px] font-black">API Authorization Key</label>
+                    {!settings.cjConnected && (
+                      <a href="https://cjdropshipping.com" target="_blank" rel="noreferrer" className="text-[10px] text-[#FF6A00] hover:underline uppercase font-bold tracking-widest">Get Credentials</a>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="password" 
+                      value={cjKey}
+                      onChange={e => setCjKey(e.target.value)}
+                      disabled={settings.cjConnected}
+                      placeholder="••••••••••••••••••••••••••••"
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl p-4 text-white focus:border-[#FF6A00] focus:ring-1 focus:ring-[#FF6A00]/20 outline-none transition-all font-mono text-sm disabled:opacity-50" 
+                    />
+                    {settings.cjConnected && (
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        <CheckCircle2 className="w-5 h-5 text-[#50C878]" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center gap-4">
+                  {!settings.cjConnected ? (
+                    <button 
+                      onClick={handleConnectCJ}
+                      disabled={status.type === 'loading'}
+                      className="flex-1 py-4 gold-gradient text-black font-black text-xs uppercase tracking-[3px] rounded-xl hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      Establish Connection
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={checkConnection}
+                        disabled={status.type === 'loading'}
+                        className="flex-1 py-4 bg-white/5 border border-white/10 text-white font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                      >
+                        {status.type === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        Refresh Sync
+                      </button>
+                      <button 
+                        onClick={handleDisconnectCJ}
+                        className="px-6 py-4 border border-red-500/20 text-red-500 font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-red-500/5 transition-all"
+                      >
+                        Disconnect
+                      </button>
+                    </>
+                  )}
+                </div>
+             </div>
           </div>
-        )}
-      </div>
 
-      <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-white/5">
-           <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold flex items-center gap-3">
-                <div className="w-8 h-8 bg-[#003087] rounded flex items-center justify-center text-white font-bold italic">P</div>
-                PayPal Integration
-              </h3>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#50C878] bg-[#50C878]/10 px-3 py-1 rounded border border-[#50C878]/20">Connected</span>
-           </div>
-           
-           <div className="space-y-4">
-              <div>
-                <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">PayPal Email</label>
-                <input type="text" placeholder="your@email.com" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Client ID</label>
-                  <input type="password" placeholder="PayPal Client ID" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
+          <div className="flex-1 bg-black/40 min-h-[160px] p-6 font-mono text-[10px] text-gray-500 overflow-y-auto border-t border-white/5">
+            <div className="flex items-center gap-2 mb-4 text-[#FF6A00] opacity-50">
+              <span className="w-1.5 h-1.5 bg-[#FF6A00] rounded-full animate-pulse" />
+              <span className="uppercase font-bold tracking-[2px]">System Operational Logs</span>
+            </div>
+            <div className="space-y-1.5">
+              {log.map((msg, i) => (
+                <div key={i} className={`flex gap-3 ${msg.includes('❌') || msg.includes('FAILED') ? 'text-red-400' : msg.includes('✅') || msg.includes('SUCCESS') ? 'text-green-400' : 'text-gray-500'}`}>
+                   <span className="shrink-0 opacity-30 tracking-tighter">[{i.toString().padStart(2, '0')}]</span>
+                   <span>{msg}</span>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-400 uppercase tracking-widest mb-1 block">Secret</label>
-                  <input type="password" placeholder="PayPal Secret Key" className="w-full bg-[#0A0A0A] border border-white/10 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none" />
-                </div>
-              </div>
-           </div>
-           
-           <div className="mt-6 flex gap-4">
-             <button className="px-6 py-3 bg-white text-black font-bold text-sm uppercase tracking-wider rounded-lg hover:bg-gray-200">Save & Connect</button>
-             <button className="px-6 py-3 border border-white/10 text-gray-400 font-bold text-sm uppercase tracking-wider rounded-lg hover:text-white">Test Keys</button>
-           </div>
+              ))}
+              {log.length === 0 && <div className="italic opacity-30 uppercase tracking-[2px]">Awaiting connection attempt...</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Info Sidebar */}
+        <div className="space-y-6">
+          <div className="bg-[#141414] border border-[#D4AF37]/20 p-6 rounded-2xl shadow-xl shadow-gold/5">
+             <h4 className="text-[#D4AF37] font-bold uppercase tracking-[2px] text-xs mb-4">Connection Guide</h4>
+             <ul className="space-y-4">
+                {[
+                  { step: "01", text: "Log in to your CJ Dropshipping dashboard." },
+                  { step: "02", text: "Navigate to API Settings and copy your Key." },
+                  { step: "03", text: "Paste the key into the Aura Bridge above." },
+                  { step: "04", text: "System will auto-verify and link your account." }
+                ].map((item, i) => (
+                  <li key={i} className="flex gap-4 items-start">
+                    <span className="text-[10px] font-black text-[#D4AF37] mt-1">{item.step}</span>
+                    <p className="text-xs text-gray-400 leading-relaxed font-medium">{item.text}</p>
+                  </li>
+                ))}
+             </ul>
+          </div>
+
+          <div className="bg-[#141414] border border-white/5 p-6 rounded-2xl opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-not-allowed">
+             <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-black italic text-xs">P</div>
+                <h4 className="text-sm font-bold">PayPal Gateway</h4>
+             </div>
+             <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">Coming Soon: Automatic Payouts</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-[#1A1A1A] border border-[#D4AF37] rounded-2xl p-0 shadow-[0_4px_30px_rgba(212,175,55,0.1)] overflow-hidden max-w-3xl">
-        <iframe src="/cj-quick-connect.html" className="w-full h-[850px] border-none" title="CJ Quick Connect" />
+      {/* Experimental Section */}
+      <div className="mt-12 bg-[#1A1A1A] border border-[#D4AF37]/30 rounded-3xl overflow-hidden shadow-2xl relative group">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        <div className="p-8 border-b border-white/5 flex justify-between items-center bg-[#1A1A1A]">
+          <div>
+            <h3 className="text-xl font-bold text-white tracking-tight">Vercel Edge Quick Sync</h3>
+            <p className="text-xs text-gray-500 uppercase tracking-[2px] mt-1 font-bold italic">Alternate Connection Mesh</p>
+          </div>
+        </div>
+        <div className="p-0">
+          <iframe src="/cj-quick-connect.html" className="w-full h-[600px] border-none" title="CJ Quick Connect" />
+        </div>
       </div>
 
-      {/* AliExpress Integration Section */}
       <AliExpressConnector />
     </div>
   );
