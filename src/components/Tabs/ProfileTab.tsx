@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { Package, User as UserIcon, MapPin, Truck, CheckCircle2, Clock, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { cjApi } from '../../lib/cjApi';
+import { cjApi } from '../../lib/cj-api';
 
 export function ProfileTab() {
   const { user, orders, settings, setUser, setActiveTab } = useStore();

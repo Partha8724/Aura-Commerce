@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
-import { cjApi } from '../../lib/cjApi';
+import { cjApi } from '../../lib/cj-api';
 import { supabase } from '../../lib/supabase';
 import { Product } from '../../types';
 import { 
@@ -236,18 +236,18 @@ function BotsSection() {
       try {
         if (settings.cjAccessToken) cjApi.accessToken = settings.cjAccessToken;
         if (settings.cjApiKey) cjApi.apiKey = settings.cjApiKey;
-        const productsList = await cjApi.getProducts(1, 15);
-        if (productsList && productsList.length > 0) {
+        const productsResponse = await cjApi.getProducts(1, 15);
+        if (productsResponse && productsResponse.data?.list && productsResponse.data.list.length > 0) {
           addBotLog({
             id: Math.random().toString(),
             bot: 'Auto Import',
-            message: `Found ${productsList.length} potential products. Fetching deep-data for each...`,
+            message: `Found ${productsResponse.data.list.length} potential products. Fetching deep-data for each...`,
             date: new Date().toLocaleTimeString(),
             type: 'info'
           });
 
-          for (let i = 0; i < productsList.length; i++) {
-            const prod = productsList[i];
+          for (let i = 0; i < productsResponse.data.list.length; i++) {
+            const prod = productsResponse.data.list[i];
             
             // Staggered detailed fetch to get "everything"
             setTimeout(async () => {
@@ -296,18 +296,18 @@ function BotsSection() {
                 const basicProduct: Product = {
                    id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
                    title: prod.productNameEn || prod.productName || 'CJ Product',
-                   description: prod.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
+                   description: prod.productNameEn || 'Automatically imported product from CJ Dropshipping.',
                    supplier: 'CJ Dropshipping',
-                   price: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
-                   basePrice: parseFloat(prod.sellPrice || 0),
+                   price: (prod.sellPrice || 0) + parseFloat(margin),
+                   basePrice: prod.sellPrice || 0,
                    commission: parseFloat(margin),
-                   finalPrice: parseFloat(prod.sellPrice || 0) + parseFloat(margin),
+                   finalPrice: (prod.sellPrice || 0) + parseFloat(margin),
                    stock: 999,
                    rating: 4.5 + Math.random() * 0.5,
                    category: prod.categoryName || 'General',
                    imageUrl: prod.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
                    images: prod.productImage ? [prod.productImage] : [],
-                   weight: prod.productWeight ? parseFloat(prod.productWeight) : 0,
+                   weight: prod.productWeight || 0,
                    isNew: true,
                    isDemo: false,
                    discountEligible: true
@@ -629,8 +629,8 @@ function ConnectionsSection() {
         setStatus('Connected successfully!');
         quickLog('✅ CJ DROPSHIPPING CONNECTED SUCCESSFULLY!');
       } else {
-        setStatus('err: ' + response.error);
-        quickLog(`❌ Connection Error: ${response.error}`);
+        setStatus('err: ' + response.message);
+        quickLog(`❌ Connection Error: ${response.message}`);
         updateSettings({ cjConnected: false });
       }
     } catch (err: any) {
@@ -663,8 +663,8 @@ function ConnectionsSection() {
         setStatus('Connection OK');
         quickLog('✅ Connection is working perfectly!');
       } else {
-        setStatus('err: ' + response.error);
-        quickLog(`⚠️ Error: ${response.error}`);
+        setStatus('err: ' + response.message);
+        quickLog(`⚠️ Error: ${response.message}`);
       }
     } catch(err: any) {
       setStatus('err: Connection test failed.');

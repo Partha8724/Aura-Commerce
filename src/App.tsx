@@ -11,7 +11,7 @@ import { AdminTab } from './components/Tabs/AdminTab';
 import { ProfileTab } from './components/Tabs/ProfileTab';
 import { ProductDetail } from './components/ProductDetail';
 import { supabase } from './lib/supabase';
-import { cjApi } from './lib/cjApi';
+import { cjApi } from './lib/cj-api';
 
 export default function App() {
   const hasSeenIntro = useStore(state => state.hasSeenIntro);
