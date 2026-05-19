@@ -14,8 +14,12 @@ async function startServer() {
 
   // Proxy for CJ Dropshipping API to avoid CORS issues
   app.use("/api/cj-proxy", async (req, res, next) => {
-    // For health check
-    if (req.path === "/health" || req.path === "/health/") {
+    // Determine the actual sub-path by removing the mount point
+    // req.path is relative to /api/cj-proxy for this middleware
+    const cjRelativePathWithLeadingSlash = req.path || "/";
+    
+    // Handle health check
+    if (cjRelativePathWithLeadingSlash === "/health" || cjRelativePathWithLeadingSlash === "/health/") {
       console.log(`[CJ Proxy] Health check Success from ${req.ip}`);
       return res.json({ 
         status: "ok", 
@@ -24,17 +28,23 @@ async function startServer() {
       });
     }
 
-    // In app.use("/api/cj-proxy"), req.path is already the sub-path
-    const cjPath = req.path.replace(/^\//, "");
+    // Extract the portion of the path for CJ API (ensure no leading slash for construction)
+    let cjPath = cjRelativePathWithLeadingSlash.replace(/^\//, "");
     
     if (!cjPath) {
-       console.log("[CJ Proxy] Error: Missing path");
+       console.log("[CJ Proxy] Error: Missing path in " + req.originalUrl);
        return res.status(400).json({ code: 400, message: "Missing CJ endpoint path after /api/cj-proxy/" });
     }
 
-    // Use req.url for the query string since it's also relative to the mount point
-    const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
-    const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
+    // Ensure cjPath includes 'v1/' prefix if not already present
+    // Most CJ 2.0 endpoints are under /v1/
+    if (!cjPath.startsWith('v1/')) {
+      cjPath = 'v1/' + cjPath;
+    }
+
+    // Reconstruct the full target URL
+    const queryString = req.url.includes("?") ? req.url.substring(req.url.indexOf("?")) : "";
+    const targetUrl = `https://developers.cjdropshipping.com/api2.0/${cjPath}${queryString}`;
     
     console.log(`[CJ Proxy] ${req.method} ${req.originalUrl} -> ${targetUrl}`);
     

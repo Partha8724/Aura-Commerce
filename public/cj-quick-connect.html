@@ -452,7 +452,7 @@ async function connectToCJ() {
     log('📡 Calling CJ API via local proxy...', 'info');
     
     // REAL API CALL TO CJ (via proxy to avoid CORS)
-    var response = await fetch(CJ_BASE_URL + '/commodity/getCategory', {
+    var response = await fetch(CJ_BASE_URL + '/product/list?pageNum=1&pageSize=1', {
       method: 'GET',
       headers: {
         'CJ-Access-Token': accessToken,
@@ -590,7 +590,7 @@ async function testConnection() {
   }
   
   try {
-    var response = await fetch(CJ_BASE_URL + '/commodity/getCategory', {
+    var response = await fetch(CJ_BASE_URL + '/product/list?pageNum=1&pageSize=1', {
       method: 'GET',
       headers: {
         'CJ-Access-Token': token,

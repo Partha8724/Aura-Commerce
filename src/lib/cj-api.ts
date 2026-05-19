@@ -198,7 +198,7 @@ export class CJApiClient {
    * Get Categories
    */
   async getCategories(): Promise<CJCategoryResponse> {
-    return this.request('/category/list');
+    return this.request('/product/getCategory');
   }
 
   /**
@@ -254,12 +254,13 @@ export class CJApiClient {
       if (accessToken) this.accessToken = accessToken;
       if (apiKey) this.apiKey = apiKey;
       
-      const data = await this.getCategories();
-      if (data.code === 200) {
+      // Use product/list with small page size as a robust connection test
+      const data: any = await this.getProducts(1, 1);
+      if (data.code === 200 || data.result === true) {
         this.tokenExpiry = Date.now() + 86400000;
         return { success: true, message: 'Successfully connected to CJ API.' };
       }
-      return { success: false, message: data.message || 'Connection failed.' };
+      return { success: false, message: data.message || 'Connection failed: API returned success=false' };
     } catch (e: any) {
       return { success: false, message: e.message };
     }
