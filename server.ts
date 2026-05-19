@@ -118,6 +118,28 @@ async function startServer() {
     }
   });
 
+  app.post("/api/cj/connect", async (req, res) => {
+    try {
+      const { apiKey, email } = req.body;
+      const { validateCJConnection } = await import("./src/lib/cj-connection-validator");
+      
+      console.log(`[Server]: AI Gateway received connection request for ${email || 'default email'}`);
+      
+      const result = await validateCJConnection(apiKey, email);
+      
+      // Always return 200 with JSON result as requested
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[Server] CJ Connect Error:", error.message);
+      res.status(200).json({
+        success: false,
+        status: 'offline',
+        message: 'Internal Gateway Error: ' + error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // AliExpress Dropshipping Integration
   app.post("/api/supplier/connect-aliexpress", async (req, res) => {
     const { ali_app_key, ali_app_secret, ali_access_token } = req.body;
