@@ -6,6 +6,10 @@
       "destination": "/api/cj-proxy?path=:path*"
     },
     {
+      "source": "/api/cj/connect",
+      "destination": "/api/cj/connect"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
