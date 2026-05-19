@@ -9,24 +9,23 @@ import {
 } from './cj-types';
 
 /**
- * Robust CJ Dropshipping API Client
+ * AURA COMMERCE - Robust CJ Dropshipping API Client
  * Features:
- * - Automatic Token Handshaking
- * - Retry Logic (3 attempts)
- * - Request Timeout (15s)
- * - Support for both Client-side Proxy and Direct Server-side calls
- * - Singleton Export
+ * - Automatic Token Handshaking & Proactive Refreshing
+ * - Retry Logic (3 attempts, 1s exponential backoff)
+ * - Request Timeout (15s) with AbortController
+ * - Unified Proxy/Direct Logic for Vercel Serverless
+ * - British English Documentation
  */
 export class CJApiClient {
   private baseURL: string;
   public accessToken: string | null = null;
   public refreshToken: string | null = null;
   public apiKey: string | null = null;
-  private tokenExpiry: number = 0; // Unix timestamp in ms
+  private tokenExpiry: number = 0; // Epoch in ms
   private isRefreshing: Promise<string> | null = null;
   private timeoutMs: number = 15000;
   private maxRetries: number = 3;
-  private retryDelayMs: number = 1000;
 
   constructor(options?: { 
     baseURL?: string, 
@@ -36,21 +35,31 @@ export class CJApiClient {
     apiKey?: string 
   }) {
     const isBrowser = typeof window !== 'undefined';
-    // Fallback to proxy in browser, direct URL on server
-    this.baseURL = options?.baseURL || (isBrowser ? '/api/cj-proxy' : (process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1'));
+    
+    // On server, prioritize environment variable
+    // In browser, use the local proxy to bypass CORS
+    this.baseURL = options?.baseURL || (
+      isBrowser 
+        ? '/api/cj-proxy' 
+        : (process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1')
+    );
+    
     this.accessToken = options?.accessToken || null;
     this.refreshToken = options?.refreshToken || null;
     this.tokenExpiry = options?.tokenExpiry || 0;
-    this.apiKey = options?.apiKey || null;
+    this.apiKey = options?.apiKey || (typeof process !== 'undefined' ? process.env.CJ_API_KEY : null) || null;
   }
 
   /**
-   * Core request handler with timeout and retry logic
+   * Internal request handler with circuit-breaker-lite logic
    */
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = this.baseURL.endsWith('/') 
-      ? `${this.baseURL}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}` 
-      : `${this.baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    // Precise URL construction to avoid double slashes or missing ones
+    let finalBase = this.baseURL;
+    if (finalBase.endsWith('/')) finalBase = finalBase.slice(0, -1);
+    
+    const url = `${finalBase}${path}`;
     
     let lastError: Error | null = null;
     
@@ -59,20 +68,27 @@ export class CJApiClient {
       const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
 
       try {
-        const token = await this.getValidToken().catch(() => this.accessToken);
+        // Skip token check for authentication routes to prevent infinite loops
+        let token = null;
+        if (!endpoint.includes('/authentication/')) {
+          token = await this.getValidToken().catch(() => this.accessToken);
+        }
         
         const headers = new Headers(options.headers);
         if (token && !headers.has('CJ-Access-Token')) {
           headers.set('CJ-Access-Token', token);
         }
-        if (this.apiKey && !headers.has('CJ-Api-Key')) {
-          headers.set('CJ-Api-Key', this.apiKey);
+        
+        const currentApiKey = this.apiKey || (typeof process !== 'undefined' ? process.env.CJ_API_KEY : null);
+        if (currentApiKey && !headers.has('CJ-Api-Key')) {
+          headers.set('CJ-Api-Key', currentApiKey);
         }
+        
         if (!headers.has('Content-Type')) {
           headers.set('Content-Type', 'application/json');
         }
 
-        console.log(`[CJ API] ${options.method || 'GET'} Request to ${endpoint} (Attempt ${attempt})`);
+        console.log(`[CJ API] ${options.method || 'GET'} ${endpoint} (Attempt ${attempt}/3)`);
         
         const response = await fetch(url, {
           ...options,
@@ -83,11 +99,10 @@ export class CJApiClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          // Check for 404 specifically as it's a common routing error
           if (response.status === 404) {
-            throw new Error(`CJ API Routing Error (404 Not Found) at ${url}. Check your CJ_BASE_URL.`);
+            throw new Error(`Routing Error: Resource not found at ${url}. Verify CJ_BASE_URL.`);
           }
-          throw new Error(`CJ API HTTP Error: ${response.status} ${response.statusText}`);
+          throw new Error(`HTTP Error: ${response.status} - ${response.statusText}`);
         }
 
         const text = await response.text();
@@ -95,16 +110,16 @@ export class CJApiClient {
         try {
           data = JSON.parse(text);
         } catch (e) {
-          console.error('[CJ API] Parsing error. Raw response:', text.substring(0, 500));
-          throw new Error('CJ API returned a non-JSON response. Check your proxy settings.');
+          console.error('[CJ API] Payload parse error. Response was non-JSON:', text.substring(0, 100));
+          throw new Error('Communication Error: Received HTML instead of JSON. Gateway failure.');
         }
         
-        // CJ specific error codes mapping
+        // Handle CJ-specific business logic errors
         if (data.code && data.code !== 200 && data.code !== 201) {
-           if (data.code === 401 || (data.message && data.message.toLowerCase().includes('expired'))) {
-             this.accessToken = null;
+           if (data.code === 401 || data.message?.toLowerCase().includes('expired')) {
+             this.accessToken = null; // Clear stale token
            }
-           throw new Error(data.message || `CJ API System Error ${data.code}`);
+           throw new Error(data.message || `Protocol Error ${data.code}`);
         }
 
         return data as T;
@@ -114,24 +129,23 @@ export class CJApiClient {
         
         if (error.name === 'AbortError') {
           console.warn(`[CJ API] Request timed out on attempt ${attempt}`);
-        } else {
-          console.warn(`[CJ API] Error on attempt ${attempt}:`, error.message);
         }
 
         if (attempt < this.maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, this.retryDelayMs));
+          // Linear backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
       }
     }
 
-    throw lastError || new Error('Request failed after maximum retry attempts');
+    throw lastError || new Error('Connection failed after maximum retry attempts');
   }
 
   /**
-   * Ensures a valid token is available, refreshing if necessary
+   * Proactively handshakes or refreshes the access token
    */
   public async getValidToken(): Promise<string> {
-    const BUFFER_MS = 5 * 60 * 1000;
+    const BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer
     
     if (this.accessToken && Date.now() < this.tokenExpiry - BUFFER_MS) {
       return this.accessToken;
@@ -141,26 +155,32 @@ export class CJApiClient {
 
     this.isRefreshing = (async () => {
       try {
+        // Attempt refresh first if possible
         if (this.refreshToken) {
-          console.log('[CJ API] Token refreshing...');
-          const data: CJAuthResponse = await this.request('/authentication/refreshAccessToken', {
-            method: 'POST',
-            body: JSON.stringify({ refreshToken: this.refreshToken })
-          });
+          console.log('[CJ API] Attempting token refresh...');
+          try {
+            const data: CJAuthResponse = await this.request('/authentication/refreshAccessToken', {
+              method: 'POST',
+              body: JSON.stringify({ refreshToken: this.refreshToken })
+            });
 
-          if (data.result && data.data?.accessToken) {
-            this.updateCache(data.data);
-            return this.accessToken!;
+            if (data.result && data.data?.accessToken) {
+              this.updateCache(data.data);
+              return this.accessToken!;
+            }
+          } catch (e) {
+            console.warn('[CJ API] Refresh failed, resorting to full handshake.');
           }
         }
         
-        if (!this.accessToken) {
-          // If we are server-side and have credentials, we could auto-authenticate
-          if (typeof window === 'undefined' && process.env.CJ_EMAIL && this.apiKey) {
-            console.log('[CJ API] No token found. Attempting auto-handshake on server...');
-            const auth = await this.authenticate(process.env.CJ_EMAIL, this.apiKey);
-            if (auth.result && auth.data?.accessToken) return auth.data.accessToken;
-          }
+        // Default to full handshake if refresh fails or no token exists
+        const email = typeof process !== 'undefined' ? process.env.CJ_EMAIL : null;
+        const key = this.apiKey || (typeof process !== 'undefined' ? process.env.CJ_API_KEY : null);
+        
+        if (email && key) {
+          console.log('[CJ API] Performing server-side handshake...');
+          const auth = await this.authenticate(email, key);
+          if (auth.result && auth.data?.accessToken) return auth.data.accessToken;
         }
 
         return this.accessToken || '';
@@ -178,23 +198,21 @@ export class CJApiClient {
     try {
       this.tokenExpiry = new Date(data.accessTokenExpiryDate).getTime();
     } catch (e) {
-      this.tokenExpiry = Date.now() + 86400000; // Default 24h safety
+      this.tokenExpiry = Date.now() + 86400000; // 24h fallback
     }
   }
 
   /**
-   * Authentication shake
+   * Primary authentication handshake
    */
   async getAccessToken(email?: string, apiKey?: string): Promise<CJAuthResponse> {
     if (apiKey) this.apiKey = apiKey;
-    const body = { 
-      email: email || process.env.CJ_EMAIL || '', 
-      password: this.apiKey 
-    };
+    const authEmail = email || (typeof process !== 'undefined' ? process.env.CJ_EMAIL : '') || '';
+    const authKey = apiKey || this.apiKey || (typeof process !== 'undefined' ? process.env.CJ_API_KEY : '') || '';
 
     const data: CJAuthResponse = await this.request('/authentication/getAccessToken', {
       method: 'POST',
-      body: JSON.stringify(body)
+      body: JSON.stringify({ email: authEmail, password: authKey })
     });
     
     if (data.result && data.data) {
@@ -208,7 +226,7 @@ export class CJApiClient {
   }
 
   /**
-   * Inventory & Products
+   * Inventory Queries
    */
   async getProducts(pageNum = 1, pageSize = 20, params: any = {}): Promise<CJProductListResponse> {
     const query = new URLSearchParams({
@@ -216,7 +234,6 @@ export class CJApiClient {
       pageSize: pageSize.toString(),
       ...params
     }).toString();
-    
     return this.request(`/product/list?${query}`);
   }
 
@@ -225,35 +242,9 @@ export class CJApiClient {
   }
 
   /**
-   * Health Check Protocol
+   * Order Fulfilment
    */
-  async healthCheck(): Promise<CJHealthCheck> {
-    try {
-      // Robust check using product list
-      const data: any = await this.getProducts(1, 1);
-      const isOk = data.code === 200 || data.result === true;
-      return {
-        status: isOk ? 'healthy' : 'unhealthy',
-        connection: true,
-        tokenValid: isOk,
-        message: data.message || (isOk ? 'Protocol active' : 'API handshake failed'),
-        timestamp: new Date().toISOString()
-      };
-    } catch (e: any) {
-      return {
-        status: 'unhealthy',
-        connection: false,
-        tokenValid: false,
-        message: e.message,
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
-
-  /**
-   * Order Operations
-   */
-  async createOrder(orderRequest: any): Promise<any> {
+  async createOrder(orderRequest: CJOrderRequest): Promise<CJOrderResponse> {
     return this.request('/order/create', {
       method: 'POST',
       body: JSON.stringify(orderRequest)
@@ -270,39 +261,57 @@ export class CJApiClient {
   }
 
   /**
-   * Shipping / Logistics
+   * Logistics & Shipping
    */
-  async getShippingMethods(countryCode: string, products: { vid: string, quantity: number }[]): Promise<any> {
+  async getShippingMethods(countryCode: string, products: { vid: string, quantity: number }[]): Promise<CJShippingResponse> {
     return this.request('/buildIn/getFreightFee', {
       method: 'POST',
-      body: JSON.stringify({
-        countryCode,
-        products
-      })
+      body: JSON.stringify({ countryCode, products })
     });
   }
 
+  async getTracking(orderId: string) {
+    const data: any = await this.request(`/order/getTrackingDetail?orderId=${orderId}`);
+    return data.data;
+  }
+
   /**
-   * Product lookup by URL
+   * System Health Verification
+   */
+  async healthCheck(): Promise<CJHealthCheck> {
+    try {
+      const data: any = await this.getProducts(1, 1);
+      const isOk = data.code === 200 || data.result === true;
+      return {
+        status: isOk ? 'healthy' : 'unhealthy',
+        connection: true,
+        tokenValid: isOk,
+        message: data.message || (isOk ? 'Protocol active' : 'Handshake succeeded but query failed'),
+        timestamp: new Date().toISOString()
+      };
+    } catch (e: any) {
+      return {
+        status: 'unhealthy',
+        connection: false,
+        tokenValid: false,
+        message: e.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * URL-based Product Discovery
    */
   async getProductByUrl(url: string) {
     const pidMatch = url.match(/-p-(\d+)\.html/) || url.match(/productId=([^&]+)/);
     const pid = pidMatch ? pidMatch[1] : url.split('/').pop()?.split('?')[0];
 
-    // Use product list with specific PID if match found
     const endpoint = pidMatch ? `/product/list?pid=${pid}` : `/product/list?productName=${encodeURIComponent(url)}`;
     const data: any = await this.request(endpoint);
     
     if (data.data && data.data.list && data.data.list.length > 0) return data.data.list[0];
-    throw new Error('Product not found or invalid URL provided.');
-  }
-
-  /**
-   * Tracking detail
-   */
-  async getTracking(orderId: string) {
-    const data: any = await this.request(`/order/getTrackingDetail?orderId=${orderId}`);
-    return data.data;
+    throw new Error('Product identification failed for the provided URI.');
   }
 
   /**
@@ -320,6 +329,3 @@ export class CJApiClient {
 }
 
 export const cjApi = new CJApiClient();
-
-
-

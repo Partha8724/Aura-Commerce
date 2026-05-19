@@ -4,6 +4,7 @@ import cors from "cors";
 import { createServer as createViteServer } from "vite";
 
 import { syncSitemapToGoogle, startSearchConsoleSync } from "./src/services/searchConsoleSync";
+import { validateCJConnection } from "./src/lib/cj-connection-validator";
 
 async function startServer() {
   const app = express();
@@ -123,6 +124,27 @@ async function startServer() {
       res.status(isTimeout ? 504 : 500).json({ 
         code: isTimeout ? 504 : 500, 
         message: isTimeout ? "CJ API request timed out." : "Proxy networking error: " + error.message 
+      });
+    }
+  });
+
+  // Robust connection endpoint for the UI Panel
+  app.post("/api/cj/connect", async (req, res) => {
+    try {
+      const { apiKey, email } = req.body;
+      
+      console.log(`[Server]: Connection handshake initiated for ${email || 'default merchant'}`);
+      const result = await validateCJConnection(apiKey, email);
+      
+      // Return 200 with JSON payload as requested
+      res.status(200).json(result);
+    } catch (error: any) {
+      console.error("[Server] CJ Handshake Error:", error.message);
+      res.status(200).json({
+        success: false,
+        status: 'offline',
+        message: 'Aura Gateway Error: ' + error.message,
+        timestamp: new Date().toISOString()
       });
     }
   });

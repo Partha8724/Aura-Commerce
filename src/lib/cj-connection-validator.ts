@@ -1,29 +1,34 @@
 import { cjApi } from './cj-api';
 
+/**
+ * Connection result interface
+ */
 export interface ConnectionResult {
   success: boolean;
   status: 'online' | 'offline';
   message: string;
   timestamp: string;
-  details?: any;
+  details?: {
+    handshake?: boolean;
+    health?: string;
+    code?: number;
+  };
 }
 
 /**
- * Validates the CJ Dropshipping connection by attempting authentication.
- * British English implementation.
- * 
- * @param apiKey The API Authorisation Key to test
- * @param email Optional email (defaults to CJ_EMAIL env var)
+ * Validates the CJ Dropshipping connection by testing credentials.
+ * This utility works both in the UI and in API routes.
  */
 export async function validateCJConnection(apiKey: string, email?: string): Promise<ConnectionResult> {
   const targetEmail = email || process.env.CJ_EMAIL;
-  
+  const timestamp = new Date().toISOString();
+
   if (!targetEmail) {
     return {
       success: false,
       status: 'offline',
-      message: 'CJ_EMAIL environment variable is missing in production settings.',
-      timestamp: new Date().toISOString()
+      message: 'CJ_EMAIL environment variable is missing. Please configure it in Vercel.',
+      timestamp
     };
   }
 
@@ -31,56 +36,54 @@ export async function validateCJConnection(apiKey: string, email?: string): Prom
     return {
       success: false,
       status: 'offline',
-      message: 'API Authorisation Key is required for connection.',
-      timestamp: new Date().toISOString()
+      message: 'API Authorisation Key is missing.',
+      timestamp
     };
   }
 
+  console.log(`[CJ Validator]: Initialising Handshake for ${targetEmail}...`);
+
   try {
-    console.log(`[CJ Validator]: Handshaking for ${targetEmail}...`);
-    
-    // Step 1: Attempt authentication
+    // 1. Perform authentication handshake
     const auth = await cjApi.authenticate(targetEmail, apiKey);
     
     if (!auth.result) {
       return {
         success: false,
         status: 'offline',
-        message: auth.message || 'Authorisation failed: Invalid credentials provided.',
-        timestamp: new Date().toISOString(),
-        details: { code: auth.code }
+        message: auth.message || 'Handshake failed: Invalid credentials provided.',
+        timestamp,
+        details: { code: auth.code, handshake: false }
       };
     }
 
-    // Step 2: Verify token works with a lightweight health check
+    // 2. Perform health check to verify endpoint reachability
     const health = await cjApi.healthCheck();
     
     if (health.status === 'healthy') {
       return {
         success: true,
         status: 'online',
-        message: 'Aura Secure Bridge established. Master Supplier is online.',
-        timestamp: new Date().toISOString(),
-        details: {
-          tokenValid: true,
-          health: health.status
-        }
+        message: 'Aura-CJ Secure Bridge established successfully.',
+        timestamp,
+        details: { handshake: true, health: 'healthy' }
       };
     } else {
       return {
         success: false,
         status: 'offline',
-        message: health.message || 'Handshake successful but system check failed.',
-        timestamp: new Date().toISOString()
+        message: health.message || 'System online but health check protocol failed.',
+        timestamp,
+        details: { handshake: true, health: health.status }
       };
     }
   } catch (error: any) {
-    console.error('[CJ Validator] Exception:', error.message);
+    console.error('[CJ Validator] Protocol Error:', error.message);
     return {
       success: false,
       status: 'offline',
-      message: `Network Error: ${error.message}. This may be a proxy routing issue.`,
-      timestamp: new Date().toISOString()
+      message: `Network Error: ${error.message}. Ensure CJ_BASE_URL is correct.`,
+      timestamp
     };
   }
 }
