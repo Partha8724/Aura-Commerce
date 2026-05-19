@@ -1,10 +1,28 @@
+import { 
+  CJAuthResponse, 
+  CJProductListResponse, 
+  CJCategoryResponse, 
+  CJHealthCheck 
+} from './cj-types';
+
+/**
+ * CJ Dropshipping API Client
+ * Optimized for Frontend via Proxy
+ */
 export class CJDropshippingAPI {
   // Use local proxy to avoid CORS issues
-  baseURL = '/api/cj-proxy';
-  accessToken: string | null = null;
-  tokenExpiry: Date | null = null;
-  apiKey: string | null = null;
+  private baseURL = '/api/cj-proxy';
+  
+  // In-memory token storage (shared across application life)
+  public accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  public apiKey: string | null = null;
+  private tokenExpiry: number = 0; // Unix timestamp in ms
+  private isRefreshing: Promise<string> | null = null;
 
+  /**
+   * Proactive connection check
+   */
   async detectConnection() {
     try {
       const response = await fetch(`${this.baseURL}/health`);
@@ -15,24 +33,83 @@ export class CJDropshippingAPI {
     }
   }
 
+  /**
+   * Refreshes the token using the refresh token
+   */
+  private async refreshAccessToken(): Promise<string> {
+    if (!this.refreshToken) throw new Error('No refresh token');
+
+    console.log('[CJ API]: Proactive token refresh starting...');
+    const response = await fetch(`${this.baseURL}/authentication/refreshAccessToken`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: this.refreshToken })
+    });
+
+    const data: CJAuthResponse = await response.json();
+    if (data.result && data.data?.accessToken) {
+      this.updateCache(data.data);
+      return this.accessToken!;
+    }
+    throw new Error('Refresh failed');
+  }
+
+  private updateCache(data: any): void {
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    try {
+      this.tokenExpiry = new Date(data.accessTokenExpiryDate).getTime();
+    } catch (e) {
+      this.tokenExpiry = Date.now() + 86400000;
+    }
+  }
+
+  /**
+   * Logic to ensure we always have a valid token
+   */
+  public async getValidToken(): Promise<string> {
+    const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+    
+    if (this.accessToken && Date.now() < this.tokenExpiry - FIFTEEN_MINUTES_MS) {
+      return this.accessToken;
+    }
+
+    if (this.isRefreshing) return this.isRefreshing;
+
+    this.isRefreshing = (async () => {
+      try {
+        if (this.refreshToken) {
+          try {
+            return await this.refreshAccessToken();
+          } catch (e) {
+            console.warn('[CJ API]: Refresh failed, re-authenticating...');
+          }
+        }
+        
+        // If we have an API key but no token, we can't really re-auth without email
+        // For standard frontend use, we assume the user provides the token via manual connection
+        // or it's seeded from the backend proxy.
+        if (!this.accessToken) {
+           throw new Error('Authentication required. Please connect your CJ account.');
+        }
+        
+        return this.accessToken;
+      } finally {
+        this.isRefreshing = null;
+      }
+    })();
+
+    return this.isRefreshing;
+  }
+
   async checkDirectConnection(accessToken?: string, apiKey?: string) {
     try {
-      // First check if proxy is reachable
-      const proxyCheck = await fetch(`${this.baseURL}/health`, { method: 'GET' }).catch(() => null);
-      if (proxyCheck && proxyCheck.status === 404) {
-        // Proxy exists but health endpoint might not, continue
-      } else if (!proxyCheck) {
-        return { success: false, error: 'Proxy server unreachable. Please check backend.' };
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (accessToken) headers['CJ-Access-Token'] = accessToken;
       if (apiKey) headers['CJ-Api-Key'] = apiKey;
 
-      const response = await fetch(`${this.baseURL}/product/getCategory`, {
+      // Use /category/list for connection test (reliable endpoint)
+      const response = await fetch(`${this.baseURL}/category/list`, {
         method: 'GET',
         headers
       });
@@ -42,97 +119,59 @@ export class CJDropshippingAPI {
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        console.error("CJ API check error:", response.status, responseText);
-        return { success: false, error: `Response is not valid JSON. Status: ${response.status}. Possible proxy or API issue.` };
+        return { success: false, error: `Response is not valid JSON. Status: ${response.status}. Proxy is reachable but CJ returned HTML.` };
       }
       
-      if (data.code === 200) {
-        this.accessToken = accessToken;
-        this.tokenExpiry = new Date(Date.now() + 86400000); // 24h
+      if (data.code === 200 || data.result === true) {
+        this.accessToken = accessToken || null;
+        this.apiKey = apiKey || null;
+        // If we don't have expiration from this call, assume 24h
+        this.tokenExpiry = Date.now() + 86400000; 
         return { success: true };
-      } else if (data.code === 1600001) {
-        return { success: false, error: 'Invalid or expired Access Token (Error 1600001)' };
-      } else if (data.code === 1600005) {
-        return { success: false, error: 'Invalid API Key (Error 1600005)' };
-      } else if (data.code === 1600200) {
-        return { success: false, error: 'CJ API Rate Limit exceeded. Try again in 1 minute.' };
-      } else {
-        return { success: false, error: data.message || `CJ Error (${data.code}): Connection test failed.` };
       }
+      
+      return { success: false, error: data.message || `CJ Error (${data.code}): Connection test failed.` };
     } catch (error: any) {
       return { success: false, error: `Network error: ${error.message}` };
     }
   }
 
-  async getAccessToken(email: string, password: string) {
-    try {
-      const response = await fetch(`${this.baseURL}/authentication/getAccessToken`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await response.json();
-      if (data.code === 200 && data.data && data.data.accessToken) {
-        this.accessToken = data.data.accessToken;
-        this.tokenExpiry = new Date(data.data.accessTokenExpiry || Date.now() + 86400000);
-        return { success: true, token: this.accessToken };
-      }
-      throw new Error(data.message || 'Failed to get access token');
-    } catch (error: any) {
-      console.error('CJ Auth Error:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
   async getProductByUrl(url: string) {
-    // Extract PID from URL if possible
     const pidMatch = url.match(/-p-(\d+)\.html/);
     const pid = pidMatch ? pidMatch[1] : url;
 
-    const endpoint = pidMatch ? '/product/details' : '/product/list';
-    const method = pidMatch ? 'GET' : 'POST';
-    const queryParams = pidMatch ? `?pid=${pid}` : '';
+    // CJ API 2.0 endpoints
+    const endpoint = pidMatch ? '/product/query' : '/product/list';
+    const method = pidMatch ? 'GET' : 'GET'; // list can be GET too
+    const queryParams = `?pid=${pid}`;
     
-    // If we don't have local tokens, we rely on the server-side proxy to have them
+    const token = await this.getValidToken().catch(() => this.accessToken);
+    
     const response = await fetch(`${this.baseURL}${endpoint}${queryParams}`, {
       method,
       headers: {
-        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
+        ...(token ? { 'CJ-Access-Token': token } : {}),
         ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
         'Content-Type': 'application/json'
-      },
-      ...(method === 'POST' ? { body: JSON.stringify({ productName: url }) } : {})
+      }
     });
 
     const data = await response.json();
     if (data.code === 200) {
       if (pidMatch) return data.data;
       if (data.data && data.data.list && data.data.list.length > 0) return data.data.list[0];
-      throw new Error('No products found matching that criteria. Please check the URL.');
+      throw new Error('No products found matching that criteria.');
     }
     
-    // Comprehensive Error Mappings for "Best error handler"
-    const errorMap: Record<number, string> = {
-      1600101: 'API Interface not found. The endpoint path might have shifted or is legacy.',
-      1600001: 'Access Token is invalid or has expired. Please refresh your credentials.',
-      1600005: 'API Key mismatch or invalid. Check your CJ Dashboard settings.',
-      1600200: 'Rate limited by CJ. Please wait 60 seconds before next request.',
-      1690001: 'System error at CJ Dropshipping backend. Please try again later.',
-      1600102: 'The requested product is off-shelf or no longer available.',
-      1600103: 'Invalid parameters sent to CJ. URL extraction might have failed.'
-    };
-
-    throw new Error(errorMap[data.code] || data.message || `CJ Error (${data.code}): Operation failed.`);
+    throw new Error(data.message || `CJ Error (${data.code})`);
   }
 
   async getProducts(pageNum: number = 1, pageSize: number = 20) {
-    // According to CJ Dropshipping API docs, /product/list is typically GET with query Params.
-    // We already used POST in our code for name searches, let's try it as GET for proper list.
-    // Actually wait, let's just use POST since the proxy might forward it as is, or we use GET query string.
+    const token = await this.getValidToken().catch(() => this.accessToken);
     const response = await fetch(`${this.baseURL}/product/list?pageNum=${pageNum}&pageSize=${pageSize}`, {
       method: 'GET',
       headers: {
-        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
+        ...(token ? { 'CJ-Access-Token': token } : {}),
         ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
         'Content-Type': 'application/json'
       }
@@ -143,10 +182,11 @@ export class CJDropshippingAPI {
   }
 
   async getTracking(orderId: string) {
+    const token = await this.getValidToken().catch(() => this.accessToken);
     const response = await fetch(`${this.baseURL}/order/getTrackingDetail?orderId=${orderId}`, {
       method: 'GET',
       headers: {
-        ...(this.accessToken ? { 'CJ-Access-Token': this.accessToken } : {}),
+        ...(token ? { 'CJ-Access-Token': token } : {}),
         ...(this.apiKey ? { 'CJ-Api-Key': this.apiKey } : {}),
         'Content-Type': 'application/json'
       }
@@ -154,6 +194,41 @@ export class CJDropshippingAPI {
     const data = await response.json();
     if (data.code === 200) return data.data;
     throw new Error(data.message || 'Failed to get tracking');
+  }
+
+  /**
+   * Health check utility to verify API status seamlessly
+   */
+  public async healthCheck(): Promise<CJHealthCheck> {
+    try {
+      const token = await this.getValidToken().catch(() => this.accessToken);
+      if (!token) throw new Error('No authentication token available.');
+
+      const response = await fetch(`${this.baseURL}/category/list`, {
+        method: 'GET',
+        headers: {
+          'CJ-Access-Token': token,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      
+      return {
+        status: data.code === 200 ? 'healthy' : 'unhealthy',
+        connection: true,
+        tokenValid: !!token,
+        message: data.message || `Connected. Code: ${data.code}`,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        status: 'unhealthy',
+        connection: false,
+        tokenValid: false,
+        message: error.message || 'Complete connection failure.',
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cjApi } from '../../../../src/lib/cj-api';
+import { cjApi } from '../../../../src/lib/cjApi';
 
 /**
  * CJ Dropshipping Connection Test Endpoint
@@ -28,7 +28,7 @@ export async function GET() {
 
     // Step 2: Test product fetching (First 5 products)
     console.log('[CJ Test Route]: Token verified. Fetching initial products...');
-    const productsResponse = await cjApi.getProducts(1, 5);
+    const products = await cjApi.getProducts(1, 5);
 
     // Step 3: Compile successful response
     return NextResponse.json({
@@ -37,10 +37,10 @@ export async function GET() {
       diagnostics: {
         health: healthStatus,
         productFetchTest: {
-          success: productsResponse.result,
-          itemsFound: productsResponse.data?.list?.length || 0,
-          totalAvailable: productsResponse.data?.total || 0,
-          sampleProduct: productsResponse.data?.list?.[0]?.productNameEn || 'No products returned'
+          success: true,
+          itemsFound: products.length || 0,
+          totalAvailable: 'Dynamic',
+          sampleProduct: products[0]?.productNameEn || 'No products returned'
         }
       }
     });

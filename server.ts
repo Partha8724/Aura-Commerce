@@ -14,17 +14,8 @@ async function startServer() {
 
   // Proxy for CJ Dropshipping API to avoid CORS issues
   app.use("/api/cj-proxy", async (req, res, next) => {
-    // Support for trailing slashes and more robust path mapping
-    const fullOriginalUrl = req.originalUrl || req.url;
-    const urlWithoutQuery = fullOriginalUrl.split('?')[0];
-    const mountPath = "/api/cj-proxy";
-    
-    // Extract the sub-path exactly
-    let subPath = urlWithoutQuery.substring(mountPath.length);
-    if (!subPath.startsWith('/')) subPath = '/' + subPath;
-    
-    // Handle health check
-    if (subPath === "/health" || subPath === "/health/") {
+    // For health check
+    if (req.path === "/health" || req.path === "/health/") {
       console.log(`[CJ Proxy] Health check Success from ${req.ip}`);
       return res.json({ 
         status: "ok", 
@@ -33,18 +24,19 @@ async function startServer() {
       });
     }
 
-    // Extract the portion of the path for CJ API (remove leading slash)
-    const cjPath = subPath.replace(/^\//, "");
+    // In app.use("/api/cj-proxy"), req.path is already the sub-path
+    const cjPath = req.path.replace(/^\//, "");
     
     if (!cjPath) {
        console.log("[CJ Proxy] Error: Missing path");
        return res.status(400).json({ code: 400, message: "Missing CJ endpoint path after /api/cj-proxy/" });
     }
 
+    // Use req.url for the query string since it's also relative to the mount point
     const queryString = req.url.includes("?") ? req.url.split("?")[1] : "";
     const targetUrl = `https://developers.cjdropshipping.com/api2.0/v1/${cjPath}${queryString ? "?" + queryString : ""}`;
     
-    console.log(`[CJ Proxy] ${req.method} ${fullOriginalUrl} -> CJ API: ${cjPath}`);
+    console.log(`[CJ Proxy] ${req.method} ${req.originalUrl} -> ${targetUrl}`);
     
     try {
       const headers: Record<string, string> = {
