@@ -606,14 +606,13 @@ function ConnectionsSection() {
       return;
     }
 
-    // JWT structure check (header.payload.signature)
-    // CJ Tokens often have a prefix like "API@...:", so we check the part after the colon or the whole string
+    // Relaxed JWT check: CJ Tokens vary greatly, some are hybrid.
+    // We'll just verify it's a non-trivial string or follows basic multi-part structure
     const tokenPart = a.includes(':') ? a.split(':')[1] : a;
-    const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
     
-    if (!jwtRegex.test(tokenPart)) {
-      setStatus('err: Invalid Access Token format. It must be a valid JWT.');
-      quickLog('⚠️ Validation Failed: Access Token does not match JWT structure.');
+    if (tokenPart.length < 20) {
+      setStatus('err: Invalid Access Token format. It seems too short.');
+      quickLog('⚠️ Validation Failed: Access Token is too short.');
       return;
     }
 
