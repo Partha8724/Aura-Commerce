@@ -576,35 +576,36 @@ function ConnectionsSection() {
         return;
       }
 
-      setStatus({ type: 'loading', message: 'Authenticating with CJ Dropshipping...' });
-      quickLog('⚡ Handshaking via Aura Proxy...');
+      setStatus({ type: 'loading', message: 'Establishing Secure Bridge...' });
+      quickLog('⚡ Handshaking via Aura Gateway...');
       
       try {
-        // Authenticate directly using the client (proxy will inject email)
-        const auth = await cjApi.authenticate(undefined, k);
+        // Use the dedicated server-side connect route for the handshake
+        const response = await fetch('/api/cj/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: k })
+        });
 
-        if (auth.result) {
+        const result = await response.json();
+
+        if (result.success) {
           cjApi.apiKey = k;
           updateSettings({ cjApiKey: k, cjConnected: true });
           
-          // Verify with a health check
-          const health = await cjApi.healthCheck();
-          if (health.status === 'healthy') {
-            setStatus({ type: 'success', message: 'Connection established successfully!' });
-            quickLog('✅ SECURE LINK ACTIVE');
-          } else {
-            setStatus({ type: 'error', message: 'Handshake succeeded but health check failed.' });
-            quickLog('⚠️ Connection unstable.');
-          }
+          setStatus({ type: 'success', message: 'Aura Secure Bridge established! System is online.' });
+          quickLog('✅ SECURE LINK ACTIVE');
+          quickLog(`📡 Protocol: ${result.message}`);
         } else {
-          setStatus({ type: 'error', message: auth.message || 'Authorisation failed.' });
-          quickLog(`❌ Access Denied: ${auth.message}`);
+          setStatus({ type: 'error', message: result.message || 'Authorisation failed.' });
+          quickLog(`❌ Access Denied: ${result.message}`);
           updateSettings({ cjConnected: false });
         }
       } catch (err: any) {
-        setStatus({ type: 'error', message: 'Network error or proxy timeout.' });
+        setStatus({ type: 'error', message: 'Network timeout or aura gateway unreachable.' });
         quickLog(`❌ Connection Error: ${err.message}`);
       }
+
       
       setTimeout(() => setStatus({ type: null, message: '' }), 6000);
     };

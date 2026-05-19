@@ -11,10 +11,11 @@ import {
 /**
  * Robust CJ Dropshipping API Client
  * Features:
- * - Automatic Token Refresh (15m buffer)
- * - Retry Logic (3 attempts, 1s delay)
+ * - Automatic Token Handshaking
+ * - Retry Logic (3 attempts)
  * - Request Timeout (15s)
  * - Support for both Client-side Proxy and Direct Server-side calls
+ * - Singleton Export
  */
 export class CJApiClient {
   private baseURL: string;
@@ -35,7 +36,8 @@ export class CJApiClient {
     apiKey?: string 
   }) {
     const isBrowser = typeof window !== 'undefined';
-    this.baseURL = options?.baseURL || (isBrowser ? '/api/cj-proxy' : 'https://developers.cjdropshipping.com/api2.0/v1');
+    // Fallback to proxy in browser, direct URL on server
+    this.baseURL = options?.baseURL || (isBrowser ? '/api/cj-proxy' : (process.env.CJ_BASE_URL || 'https://developers.cjdropshipping.com/api2.0/v1'));
     this.accessToken = options?.accessToken || null;
     this.refreshToken = options?.refreshToken || null;
     this.tokenExpiry = options?.tokenExpiry || 0;
@@ -46,7 +48,9 @@ export class CJApiClient {
    * Core request handler with timeout and retry logic
    */
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = this.baseURL.endsWith('/') ? `${this.baseURL}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}` : `${this.baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const url = this.baseURL.endsWith('/') 
+      ? `${this.baseURL}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}` 
+      : `${this.baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     
     let lastError: Error | null = null;
     
@@ -68,6 +72,8 @@ export class CJApiClient {
           headers.set('Content-Type', 'application/json');
         }
 
+        console.log(`[CJ API] ${options.method || 'GET'} Request to ${endpoint} (Attempt ${attempt})`);
+        
         const response = await fetch(url, {
           ...options,
           headers,
@@ -77,18 +83,28 @@ export class CJApiClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+          // Check for 404 specifically as it's a common routing error
+          if (response.status === 404) {
+            throw new Error(`CJ API Routing Error (404 Not Found) at ${url}. Check your CJ_BASE_URL.`);
+          }
           throw new Error(`CJ API HTTP Error: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error('[CJ API] Parsing error. Raw response:', text.substring(0, 500));
+          throw new Error('CJ API returned a non-JSON response. Check your proxy settings.');
+        }
         
-        // CJ specific error codes
+        // CJ specific error codes mapping
         if (data.code && data.code !== 200 && data.code !== 201) {
-           // Handle token expiration specifically if CJ returns 401/expired in body
            if (data.code === 401 || (data.message && data.message.toLowerCase().includes('expired'))) {
              this.accessToken = null;
            }
-           throw new Error(data.message || `CJ API Error ${data.code}`);
+           throw new Error(data.message || `CJ API System Error ${data.code}`);
         }
 
         return data as T;
@@ -97,9 +113,9 @@ export class CJApiClient {
         lastError = error;
         
         if (error.name === 'AbortError') {
-          console.warn(`[CJ API]: Request timeout on attempt ${attempt}`);
+          console.warn(`[CJ API] Request timed out on attempt ${attempt}`);
         } else {
-          console.warn(`[CJ API]: Request failed on attempt ${attempt}:`, error.message);
+          console.warn(`[CJ API] Error on attempt ${attempt}:`, error.message);
         }
 
         if (attempt < this.maxRetries) {
@@ -108,27 +124,25 @@ export class CJApiClient {
       }
     }
 
-    throw lastError || new Error('Request failed after max retries');
+    throw lastError || new Error('Request failed after maximum retry attempts');
   }
 
   /**
    * Ensures a valid token is available, refreshing if necessary
    */
   public async getValidToken(): Promise<string> {
-    const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+    const BUFFER_MS = 5 * 60 * 1000;
     
-    // Return current token if valid with safety buffer
-    if (this.accessToken && Date.now() < this.tokenExpiry - FIFTEEN_MINUTES_MS) {
+    if (this.accessToken && Date.now() < this.tokenExpiry - BUFFER_MS) {
       return this.accessToken;
     }
 
-    // Handle concurrent refresh attempts
     if (this.isRefreshing) return this.isRefreshing;
 
     this.isRefreshing = (async () => {
       try {
         if (this.refreshToken) {
-          console.log('[CJ API]: Proactively refreshing token...');
+          console.log('[CJ API] Token refreshing...');
           const data: CJAuthResponse = await this.request('/authentication/refreshAccessToken', {
             method: 'POST',
             body: JSON.stringify({ refreshToken: this.refreshToken })
@@ -140,13 +154,16 @@ export class CJApiClient {
           }
         }
         
-        // If no refresh token or refresh failed, we might need full re-auth
-        // This usually happens on the server side where we have credentials
         if (!this.accessToken) {
-          throw new Error('Authentication required. Missing access token.');
+          // If we are server-side and have credentials, we could auto-authenticate
+          if (typeof window === 'undefined' && process.env.CJ_EMAIL && this.apiKey) {
+            console.log('[CJ API] No token found. Attempting auto-handshake on server...');
+            const auth = await this.authenticate(process.env.CJ_EMAIL, this.apiKey);
+            if (auth.result && auth.data?.accessToken) return auth.data.accessToken;
+          }
         }
 
-        return this.accessToken;
+        return this.accessToken || '';
       } finally {
         this.isRefreshing = null;
       }
@@ -161,18 +178,23 @@ export class CJApiClient {
     try {
       this.tokenExpiry = new Date(data.accessTokenExpiryDate).getTime();
     } catch (e) {
-      this.tokenExpiry = Date.now() + 86400000; // Default 24h
+      this.tokenExpiry = Date.now() + 86400000; // Default 24h safety
     }
   }
 
   /**
-   * Authentication
+   * Authentication shake
    */
   async getAccessToken(email?: string, apiKey?: string): Promise<CJAuthResponse> {
     if (apiKey) this.apiKey = apiKey;
+    const body = { 
+      email: email || process.env.CJ_EMAIL || '', 
+      password: this.apiKey 
+    };
+
     const data: CJAuthResponse = await this.request('/authentication/getAccessToken', {
       method: 'POST',
-      body: JSON.stringify({ email: email || '', password: this.apiKey })
+      body: JSON.stringify(body)
     });
     
     if (data.result && data.data) {
@@ -186,7 +208,7 @@ export class CJApiClient {
   }
 
   /**
-   * Search / List Products
+   * Inventory & Products
    */
   async getProducts(pageNum = 1, pageSize = 20, params: any = {}): Promise<CJProductListResponse> {
     const query = new URLSearchParams({
@@ -198,17 +220,40 @@ export class CJApiClient {
     return this.request(`/product/list?${query}`);
   }
 
-  /**
-   * Get Categories
-   */
   async getCategories(): Promise<CJCategoryResponse> {
     return this.request('/product/getCategory');
   }
 
   /**
+   * Health Check Protocol
+   */
+  async healthCheck(): Promise<CJHealthCheck> {
+    try {
+      // Robust check using product list
+      const data: any = await this.getProducts(1, 1);
+      const isOk = data.code === 200 || data.result === true;
+      return {
+        status: isOk ? 'healthy' : 'unhealthy',
+        connection: true,
+        tokenValid: isOk,
+        message: data.message || (isOk ? 'Protocol active' : 'API handshake failed'),
+        timestamp: new Date().toISOString()
+      };
+    } catch (e: any) {
+      return {
+        status: 'unhealthy',
+        connection: false,
+        tokenValid: false,
+        message: e.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
    * Order Operations
    */
-  async createOrder(orderRequest: CJOrderRequest): Promise<CJOrderResponse> {
+  async createOrder(orderRequest: any): Promise<any> {
     return this.request('/order/create', {
       method: 'POST',
       body: JSON.stringify(orderRequest)
@@ -227,7 +272,7 @@ export class CJApiClient {
   /**
    * Shipping / Logistics
    */
-  async getShippingMethods(countryCode: string, products: { vid: string, quantity: number }[]): Promise<CJShippingResponse> {
+  async getShippingMethods(countryCode: string, products: { vid: string, quantity: number }[]): Promise<any> {
     return this.request('/buildIn/getFreightFee', {
       method: 'POST',
       body: JSON.stringify({
@@ -238,53 +283,18 @@ export class CJApiClient {
   }
 
   /**
-   * Proactive connection check
-   */
-  async detectConnection() {
-    try {
-      const response = await fetch(`${this.baseURL}/health`);
-      const data = await response.json();
-      return data.hasEnvKeys === true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /**
-   * Direct connection verification
-   */
-  async checkDirectConnection(accessToken?: string, apiKey?: string): Promise<{ success: boolean; message: string }> {
-    try {
-      if (accessToken) this.accessToken = accessToken;
-      if (apiKey) this.apiKey = apiKey;
-      
-      // Use product/list with small page size as a robust connection test
-      const data: any = await this.getProducts(1, 1);
-      if (data.code === 200 || data.result === true) {
-        this.tokenExpiry = Date.now() + 86400000;
-        return { success: true, message: 'Successfully connected to CJ API.' };
-      }
-      return { success: false, message: data.message || 'Connection failed: API returned success=false' };
-    } catch (e: any) {
-      return { success: false, message: e.message };
-    }
-  }
-
-  /**
-   * Product lookup by ID or URL
+   * Product lookup by URL
    */
   async getProductByUrl(url: string) {
-    const pidMatch = url.match(/-p-(\d+)\.html/);
-    const pid = pidMatch ? pidMatch[1] : url;
+    const pidMatch = url.match(/-p-(\d+)\.html/) || url.match(/productId=([^&]+)/);
+    const pid = pidMatch ? pidMatch[1] : url.split('/').pop()?.split('?')[0];
 
-    const endpoint = pidMatch ? '/product/query' : '/product/list';
-    const queryParams = `?pid=${pid}`;
+    // Use product list with specific PID if match found
+    const endpoint = pidMatch ? `/product/list?pid=${pid}` : `/product/list?productName=${encodeURIComponent(url)}`;
+    const data: any = await this.request(endpoint);
     
-    const data: any = await this.request(`${endpoint}${queryParams}`);
-    
-    if (pidMatch) return data.data;
     if (data.data && data.data.list && data.data.list.length > 0) return data.data.list[0];
-    throw new Error('No products found matching that criteria.');
+    throw new Error('Product not found or invalid URL provided.');
   }
 
   /**
@@ -296,30 +306,20 @@ export class CJApiClient {
   }
 
   /**
-   * Health Check
+   * Detection for Server-side credentials
    */
-  async healthCheck(): Promise<CJHealthCheck> {
+  async detectConnection(): Promise<boolean> {
     try {
-      // Use product/list which is generally more stable than category endpoint
-      const data: any = await this.getProducts(1, 1);
-      const isOk = data.code === 200 || data.result === true;
-      return {
-        status: isOk ? 'healthy' : 'unhealthy',
-        connection: true,
-        tokenValid: isOk,
-        message: data.message || (isOk ? 'Connection active' : 'API returned error'),
-        timestamp: new Date().toISOString()
-      };
-    } catch (e: any) {
-      return {
-        status: 'unhealthy',
-        connection: false,
-        tokenValid: false,
-        message: e.message,
-        timestamp: new Date().toISOString()
-      };
+      const response = await fetch('/api/cj-proxy/health');
+      const data = await response.json();
+      return data.hasEnvKeys === true;
+    } catch (e) {
+      return false;
     }
   }
 }
 
 export const cjApi = new CJApiClient();
+
+
+
