@@ -168,11 +168,11 @@ export class CJApiClient {
   /**
    * Authentication
    */
-  async getAccessToken(email: string, apiKey: string): Promise<CJAuthResponse> {
-    this.apiKey = apiKey;
+  async getAccessToken(email?: string, apiKey?: string): Promise<CJAuthResponse> {
+    if (apiKey) this.apiKey = apiKey;
     const data: CJAuthResponse = await this.request('/authentication/getAccessToken', {
       method: 'POST',
-      body: JSON.stringify({ email, password: apiKey })
+      body: JSON.stringify({ email: email || '', password: this.apiKey })
     });
     
     if (data.result && data.data) {
@@ -181,7 +181,7 @@ export class CJApiClient {
     return data;
   }
 
-  async authenticate(email: string, apiKey: string): Promise<CJAuthResponse> {
+  async authenticate(email?: string, apiKey?: string): Promise<CJAuthResponse> {
     return this.getAccessToken(email, apiKey);
   }
 

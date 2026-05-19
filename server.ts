@@ -91,7 +91,19 @@ async function startServer() {
       };
 
       if (["POST", "PUT", "PATCH"].includes(req.method)) {
-        fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        let body = req.body;
+        
+        // Auto-inject Email for CJ authentication if missing
+        if (cjRelativePathWithLeadingSlash.includes('/authentication/getAccessToken')) {
+            const bodyObj = typeof body === 'string' ? JSON.parse(body) : body;
+            if (!bodyObj.email && process.env.CJ_EMAIL) {
+                bodyObj.email = process.env.CJ_EMAIL;
+                body = bodyObj;
+                console.log(`[CJ Proxy] Injected CJ_EMAIL for authentication handshake`);
+            }
+        }
+        
+        fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
       }
 
       const response = await fetch(targetUrl, fetchOptions);
@@ -114,28 +126,6 @@ async function startServer() {
       res.status(isTimeout ? 504 : 500).json({ 
         code: isTimeout ? 504 : 500, 
         message: isTimeout ? "CJ API request timed out." : "Proxy networking error: " + error.message 
-      });
-    }
-  });
-
-  app.post("/api/cj/connect", async (req, res) => {
-    try {
-      const { apiKey, email } = req.body;
-      const { validateCJConnection } = await import("./src/lib/cj-connection-validator");
-      
-      console.log(`[Server]: AI Gateway received connection request for ${email || 'default email'}`);
-      
-      const result = await validateCJConnection(apiKey, email);
-      
-      // Always return 200 with JSON result as requested
-      res.status(200).json(result);
-    } catch (error: any) {
-      console.error("[Server] CJ Connect Error:", error.message);
-      res.status(200).json({
-        success: false,
-        status: 'offline',
-        message: 'Internal Gateway Error: ' + error.message,
-        timestamp: new Date().toISOString()
       });
     }
   });
