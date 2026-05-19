@@ -23,6 +23,7 @@ class CJApiClient {
   private cachedAccessToken: string | null = null;
   private cachedRefreshToken: string | null = null;
   private tokenExpiry: number = 0; // Unix timestamp in milliseconds
+  private isRefreshing: Promise<string> | null = null;
 
   constructor() {
     // Fallback deliberately implemented to prevent Cause 5 (Missing Env Variable 404s)
@@ -35,6 +36,10 @@ class CJApiClient {
       this.cachedAccessToken = process.env.CJ_ACCESS_TOKEN;
       // Optimistically assume it's valid for 30 days if seeded via ENV
       this.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000; 
+    }
+    
+    if (process.env.CJ_REFRESH_TOKEN) {
+      this.cachedRefreshToken = process.env.CJ_REFRESH_TOKEN;
     }
   }
 
@@ -88,6 +93,10 @@ class CJApiClient {
       // If CJ returns a specific failure code but the HTTP status is 200 
       // (CJ often returns 200 OK but code !== 200 in the body)
       if (data.code && data.code !== 200) {
+        // Special handling for expired tokens to trigger re-auth
+        if (data.code === 401 || data.message?.toLowerCase().includes('expired')) {
+          this.cachedAccessToken = null;
+        }
         throw new Error(`CJ API Error ${data.code}: ${data.message || 'Unknown error'}`);
       }
 
@@ -110,42 +119,101 @@ class CJApiClient {
   }
 
   /**
-   * Retrieves an Access Token, generating a new one if expired.
+   * Refreshes the Access Token using the Refresh Token
    */
-  public async getAccessToken(): Promise<string> {
-    // Return cached token if valid (with 5-minute safety buffer)
-    if (this.cachedAccessToken && Date.now() < this.tokenExpiry - 300000) {
-      return this.cachedAccessToken;
+  private async refreshAccessToken(): Promise<string> {
+    if (!this.cachedRefreshToken) {
+      throw new Error('No refresh token available to perform token refresh.');
     }
 
-    console.log('[CJ API Auth]: Fetching new access token...');
-    
-    const body = JSON.stringify({
-      email: this.email,
-      password: this.apiKey, // Assuming apiKey functions as the password/secret in standard API integration
-    });
+    console.log('[CJ API Auth]: Refreshing access token via Refresh Token...');
 
-    const data: CJAuthResponse = await this.fetchWithRetry('/authentication/getAccessToken', {
+    const data: CJAuthResponse = await this.fetchWithRetry('/authentication/refreshAccessToken', {
       method: 'POST',
-      body,
+      body: JSON.stringify({
+        refreshToken: this.cachedRefreshToken
+      })
     });
 
     if (data.result && data.data?.accessToken) {
-      this.cachedAccessToken = data.data.accessToken;
-      this.cachedRefreshToken = data.data.refreshToken;
-      
-      // Parse dates safely. If failed, default to 30 days
-      try {
-        this.tokenExpiry = new Date(data.data.accessTokenExpiryDate).getTime();
-      } catch (e) {
-        this.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
-      }
-      
-      console.log('[CJ API Auth]: Successfully obtained new access token.');
+      this.updateCache(data.data);
+      console.log('[CJ API Auth]: Successfully refreshed access token.');
+      return this.cachedAccessToken!;
+    }
+
+    throw new Error('Failed to refresh access token.');
+  }
+
+  /**
+   * Updates internal memory cache with new token data
+   */
+  private updateCache(data: any): void {
+    this.cachedAccessToken = data.accessToken;
+    this.cachedRefreshToken = data.refreshToken;
+    
+    try {
+      this.tokenExpiry = new Date(data.accessTokenExpiryDate).getTime();
+    } catch (e) {
+      // Default to 30 days if parse fails
+      this.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    }
+  }
+
+  /**
+   * Retrieves an Access Token, generating a new one if expired or close to expiry.
+   * Implements a 15-minute safety buffer for proactive refreshing.
+   */
+  public async getAccessToken(): Promise<string> {
+    // Return cached token if valid (with 15-minute safety buffer)
+    const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+    if (this.cachedAccessToken && Date.now() < this.tokenExpiry - FIFTEEN_MINUTES_MS) {
       return this.cachedAccessToken;
     }
 
-    throw new Error('Failed to obtain access token from CJ API.');
+    // Handle concurrent refresh attempts
+    if (this.isRefreshing) {
+      return this.isRefreshing;
+    }
+
+    this.isRefreshing = (async () => {
+      try {
+        // Step 1: Try refreshing using Refresh Token if available
+        if (this.cachedRefreshToken) {
+          try {
+            return await this.refreshAccessToken();
+          } catch (refreshError) {
+            console.warn('[CJ API Auth]: Refresh failed, falling back to full authentication.', refreshError);
+          }
+        }
+
+        // Step 2: Fallback to full authentication (Email/API Key)
+        console.log('[CJ API Auth]: Performing full authentication...');
+        
+        if (!this.email || !this.apiKey) {
+          throw new Error('Missing CJ API credentials (Email or API Key). Check environment variables.');
+        }
+
+        const data: CJAuthResponse = await this.fetchWithRetry('/authentication/getAccessToken', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: this.email,
+            password: this.apiKey, // API Key acts as password for this auth flow
+          }),
+        });
+
+        if (data.result && data.data?.accessToken) {
+          this.updateCache(data.data);
+          console.log('[CJ API Auth]: Obtained new access token via full authentication.');
+          return this.cachedAccessToken!;
+        }
+
+        throw new Error('Authentication failed: Invalid response from CJ API.');
+      } finally {
+        this.isRefreshing = null;
+      }
+    })();
+
+    return this.isRefreshing;
   }
 
   /**
