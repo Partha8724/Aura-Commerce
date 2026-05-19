@@ -1,42 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Production Optimisations for AURA COMMERCE
+  // Production optimisations for AURA COMMERCE
   reactStrictMode: true,
   poweredByHeader: false,
   
-  // Environment variables are automatically handled by Next.js if prefixed with NEXT_PUBLIC_
-  // No extra env configuration is required for Vercel deployments.
-
-  // SEO Headers for Sitemap and Robots
-  async headers() {
-    return [
-      {
-        source: '/sitemap.xml',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=3600, stale-while-revalidate=59',
-          },
-        ],
-      },
-      {
-        source: '/robots.txt',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=3600, stale-while-revalidate=59',
-          },
-        ],
-      },
-    ];
-  },
-
-  // SEO Redirects
-  async redirects() {
-    return [
-      // Add standard e-commerce redirects here if needed
-    ];
-  },
+  // Next.js 14 App Router ignores import.meta.env; we rely strictly on process.env.
+  // Variables prefixed with NEXT_PUBLIC_ are automatically exposed to the browser.
 
   images: {
     remotePatterns: [
@@ -54,6 +23,12 @@ const nextConfig = {
       }
     ],
   },
+  
+  // Manual passthrough for environments that might need it
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  }
 };
 
 module.exports = nextConfig;
