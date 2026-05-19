@@ -4,6 +4,9 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   
+  // Environment variables are automatically handled by Next.js if prefixed with NEXT_PUBLIC_
+  // No extra env configuration is required for Vercel deployments.
+
   // SEO Headers for Sitemap and Robots
   async headers() {
     return [
@@ -28,15 +31,10 @@ const nextConfig = {
     ];
   },
 
-  // SEO Redirects (e.g. from old paths or www to non-www if needed)
+  // SEO Redirects
   async redirects() {
     return [
-      // Example: Redirecting legacy category page if it existed
-      // {
-      //   source: '/old-category',
-      //   destination: '/shop',
-      //   permanent: true,
-      // },
+      // Add standard e-commerce redirects here if needed
     ];
   },
 

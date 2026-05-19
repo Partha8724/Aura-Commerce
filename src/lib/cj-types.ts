@@ -1,122 +1,130 @@
-// CJ Dropshipping API Type Definitions
-// AURA COMMERCE - UK Market
+/**
+ * TypeScript Type Definitions for CJ Dropshipping API
+ * Uses British English conventions for documentation.
+ */
+
+export interface CJApiError {
+  code: number;
+  message: string;
+  result: boolean;
+  success: boolean;
+  requestId?: string;
+}
+
+export interface CJAuthData {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiryDate: string;
+  refreshTokenExpiryDate: string;
+}
 
 export interface CJAuthResponse {
   code: number;
   result: boolean;
   message: string;
-  success: boolean;
-  requestId: string;
-  data: {
-    openId: number;
-    accessToken: string;
-    accessTokenExpiryDate: string;
-    refreshToken: string;
-    refreshTokenExpiryDate: string;
-    createDate: string;
-  };
+  data: CJAuthData;
+}
+
+export interface CJProductVariant {
+  vid: string;
+  pid: string;
+  variantName: string;
+  variantNameEn: string;
+  variantKey: string;
+  variantPrice: number;
+  inventory: number;
+  weight: number;
 }
 
 export interface CJProduct {
   pid: string;
-  name: string;
-  description: string;
-  price: number;
-  shippingPrice: number;
-  images: string[];
-  variants: CJVariant[];
-  inventory: number;
+  productName: string;
+  productNameEn: string;
+  productSku: string;
+  productImage: string;
+  productWeight: number;
+  productType: string;
   categoryId: string;
   categoryName: string;
-}
-
-export interface CJVariant {
-  vid: string;
-  name: string;
-  price: number;
+  sellPrice: number;
+  description: string;
+  images: string[];
+  variants: CJProductVariant[];
   inventory: number;
-  sku: string;
 }
 
 export interface CJProductListResponse {
   code: number;
   result: boolean;
   message: string;
-  success: boolean;
   data: {
     list: CJProduct[];
     total: number;
-    page: number;
+    pageNum: number;
     pageSize: number;
   };
+}
+
+export interface CJCategory {
+  categoryId: string;
+  categoryName: string;
+  parentCategoryId: string;
+  level: number;
 }
 
 export interface CJCategoryResponse {
   code: number;
   result: boolean;
   message: string;
-  success: boolean;
   data: CJCategory[];
 }
 
-export interface CJCategory {
-  id: string;
+export interface CJOrderProduct {
+  vid: string;
+  quantity: number;
+}
+
+export interface CJOrderAddress {
+  countryCode: string;
+  province: string;
+  city: string;
+  address: string;
+  postcode: string;
   name: string;
-  parentId: string;
-  children?: CJCategory[];
+  phone: string;
 }
 
 export interface CJOrderRequest {
-  products: {
-    pid: string;
-    vid: string;
-    quantity: number;
-  }[];
-  shippingAddress: {
-    name: string;
-    phone: string;
-    country: string;
-    state: string;
-    city: string;
-    address: string;
-    postcode: string;
-  };
+  orderNumber: string;
+  shippingAddress: CJOrderAddress;
+  products: CJOrderProduct[];
+  shippingMethod: string;
 }
 
 export interface CJOrderResponse {
   code: number;
   result: boolean;
   message: string;
-  success: boolean;
   data: {
     orderId: string;
     status: string;
-    trackingNumber: string;
+    trackingNumber?: string;
   };
+}
+
+export interface CJShippingMethod {
+  logisticName: string;
+  logisticPrice: number;
+  estimatedDeliveryTime: string;
+  trackingAvailable: boolean;
+  id: string;
 }
 
 export interface CJShippingResponse {
   code: number;
   result: boolean;
   message: string;
-  success: boolean;
   data: CJShippingMethod[];
-}
-
-export interface CJShippingMethod {
-  id: string;
-  name: string;
-  price: number;
-  estimatedDays: string;
-}
-
-export interface CJApiError {
-  code: number;
-  result: boolean;
-  message: string;
-  success: boolean;
-  requestId: string;
-  data: null;
 }
 
 export interface CJHealthCheck {
