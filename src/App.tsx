@@ -20,6 +20,7 @@ export default function App() {
   const selectedProductId = useStore(state => state.selectedProductId);
   const updateSettings = useStore(state => state.updateSettings);
   const addBotLog = useStore(state => state.addBotLog);
+  const user = useStore(state => state.user);
 
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
@@ -305,7 +306,23 @@ export default function App() {
         {activeTab === 'auth' && <Auth />}
         {activeTab === 'shop' && <ShopTab />}
         {activeTab === 'partner' && <PartnerCentralTab />}
-        {activeTab === 'admin' && <AdminTab />}
+        {activeTab === 'admin' && (user?.email === 'parthadutta8724@gmail.com' ? (
+          <AdminTab />
+        ) : (
+          <div className="max-w-md mx-auto my-24 p-8 bg-[#141414] border border-red-500/20 rounded-2xl text-center shadow-[0_0_50px_rgba(255,0,0,0.05)]">
+            <span className="inline-block w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 font-bold mb-4 mx-auto text-xl font-mono">!</span>
+            <h2 className="text-xl font-bold text-white mb-2">Restricted Access</h2>
+            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+              The Admin Panel is an exclusive system restricted to the authorized developer email: <b className="text-white">parthadutta8724@gmail.com</b>. Standard users and customers cannot visit or view administrative panels.
+            </p>
+            <button 
+              onClick={() => useStore.getState().setActiveTab('home')}
+              className="px-6 py-2.5 bg-[#D4AF37] text-black font-bold uppercase tracking-widest text-xs rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all"
+            >
+              Return Home
+            </button>
+          </div>
+        ))}
         {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'contact' && (
           <div className="min-h-screen pt-32 pb-24 flex items-center justify-center">

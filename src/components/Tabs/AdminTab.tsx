@@ -1614,9 +1614,11 @@ function OrdersSection() {
 }
 
 function CommissionsSection() {
-  const { stats, payouts } = useStore();
+  const { stats, payouts, orders } = useStore();
   const totalPaidOut = payouts.reduce((sum, p) => sum + p.amount, 0);
   const availableToPayout = Math.max(0, stats.commissions - totalPaidOut);
+
+  const commissionOrders = (orders || []).filter(o => o.commissionEarned && o.commissionEarned > 0);
 
   return (
     <div className="space-y-8">
@@ -1637,6 +1639,56 @@ function CommissionsSection() {
           <h3 className="text-gray-400 text-sm font-medium mb-2 uppercase tracking-wider">Lifetime Earnings</h3>
           <p className="text-2xl md:text-4xl font-bold font-mono text-white">${stats.commissions.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
         </div>
+      </div>
+
+      <div className="bg-[#141414] border border-white/5 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Live Commission Stream</h3>
+          <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 px-2 py-0.5 rounded uppercase font-bold font-mono">
+            Automated Audit
+          </span>
+        </div>
+        {commissionOrders.length === 0 ? (
+          <p className="text-xs text-gray-500 py-6 text-center font-sans">
+            No orders have qualified for commissions yet. Mark any processing order as <b className="text-white">"Delivered"</b> or <b className="text-white">"Completed"</b> in the Order Center to automatically trigger live dropship commissions.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-400">
+              <thead className="bg-[#0A0A0A]/60 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                <tr>
+                  <th className="py-3 px-4 rounded-l-lg">Order ID</th>
+                  <th className="py-3 px-4">Settlement Date</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 font-sans">Items Sold</th>
+                  <th className="py-3 px-4 rounded-r-lg text-right text-[#D4AF37]">Credited Commission</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {commissionOrders.map(order => {
+                  const qtySum = (order.items || []).reduce((acc, item) => acc + (item.cartQuantity || 1), 0);
+                  return (
+                    <tr key={order.id} className="hover:bg-white/5 transition-all duration-150">
+                      <td className="py-3.5 px-4 font-mono font-bold text-white text-xs">{order.id}</td>
+                      <td className="py-3.5 px-4 text-xs font-sans">{new Date(order.date).toLocaleDateString()}</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded tracking-wider ${
+                          order.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20'
+                        }`}>
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-sans text-gray-400">{qtySum} items</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-[#D4AF37] text-xs">
+                        +${(order.commissionEarned || 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

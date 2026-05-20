@@ -18,6 +18,16 @@ export interface BotLog {
   type: 'success' | 'info' | 'warning' | 'error';
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  date: string;
+  type: 'order' | 'support' | 'system' | 'bot';
+  read: boolean;
+  email?: string;
+}
+
 export interface Payout {
   id: string;
   date: string;
@@ -92,6 +102,11 @@ interface AppState {
 
   isCartOpen: boolean;
   setIsCartOpen: (val: boolean) => void;
+
+  notifications: Notification[];
+  addNotification: (n: Omit<Notification, 'id' | 'date' | 'read'>) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -140,16 +155,84 @@ export const useStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       orders: [],
-      addOrder: (o) => set((state) => ({ orders: [o, ...state.orders] })),
-      updateOrderStatus: (id, status, tracking, cancelReason, trackingUpdates) => set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { 
+      addOrder: (o) => set((state) => {
+        const title = `New Order Placed`;
+        const message = `Order ${o.id} for $${o.total.toFixed(2)} has been successfully submitted and marked as Processing!`;
+        const newNotif: Notification = {
+          id: `notif-${Date.now()}`,
+          title,
+          message,
+          date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          type: 'order',
+          read: false,
+          email: o.email
+        };
+        return {
+          orders: [o, ...state.orders],
+          notifications: [newNotif, ...state.notifications]
+        };
+      }),
+      updateOrderStatus: (id, status, tracking, cancelReason, trackingUpdates) => set((state) => {
+        const order = state.orders.find(o => o.id === id);
+        const updatedOrders = state.orders.map(o => o.id === id ? { 
           ...o, 
           status, 
           trackingNumber: tracking || o.trackingNumber,
           cancelReason: cancelReason || o.cancelReason,
           trackingUpdates: trackingUpdates || o.trackingUpdates 
-        } : o)
-      })),
+        } : o);
+
+        const newNotifs = [...state.notifications];
+        if (order) {
+          newNotifs.unshift({
+            id: `notif-${Date.now()}`,
+            title: status === 'Cancelled' ? 'Order Cancelled' : `Order Update: ${status}`,
+            message: status === 'Cancelled' 
+              ? `Your order ${id} was cancelled by Aura Store. Reason: "${cancelReason || 'Out of Stock'}"`
+              : `Your order ${id} has been transitioned to "${status}". Tracking: ${tracking || order.trackingNumber || 'AURA-TRAK-983021'}`,
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'order',
+            read: false,
+            email: order.email
+          });
+        }
+
+        let commissionAddition = 0;
+        let finalUpdatedOrders = updatedOrders;
+
+        if (order) {
+          const isNewCommissionState = status === 'Completed' || status === 'Delivered';
+          const isOldCommissionState = order.status === 'Completed' || order.status === 'Delivered' || (order.commissionEarned && order.commissionEarned > 0);
+
+          if (isNewCommissionState && !isOldCommissionState) {
+            commissionAddition = (order.items || []).reduce((acc, item) => {
+              const itemComm = item.commission || 0;
+              const qty = item.cartQuantity || 1;
+              return acc + (itemComm * qty);
+            }, 0);
+
+            finalUpdatedOrders = updatedOrders.map(o => o.id === id ? {
+              ...o,
+              commissionEarned: commissionAddition
+            } : o);
+          } else if (!isNewCommissionState && isOldCommissionState) {
+            commissionAddition = - (order.commissionEarned || 0);
+            finalUpdatedOrders = updatedOrders.map(o => o.id === id ? {
+              ...o,
+              commissionEarned: 0
+            } : o);
+          }
+        }
+
+        return {
+          orders: finalUpdatedOrders,
+          notifications: newNotifs,
+          stats: {
+            ...state.stats,
+            commissions: state.stats.commissions + commissionAddition
+          }
+        };
+      }),
 
       supportMessages: [
         {
@@ -171,7 +254,24 @@ export const useStore = create<AppState>()(
           orderId: 'cj-1001'
         }
       ],
-      addSupportMessage: (msg) => set((state) => ({ supportMessages: [...state.supportMessages, msg] })),
+      addSupportMessage: (msg) => set((state) => {
+        const newNotifs = [...state.notifications];
+        if (msg.sender === 'admin') {
+          newNotifs.unshift({
+            id: `notif-${Date.now()}`,
+            title: `Support Agent Replied`,
+            message: msg.text.length > 70 ? `${msg.text.substring(0, 70)}...` : msg.text,
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'support',
+            read: false,
+            email: msg.customerEmail
+          });
+        }
+        return {
+          supportMessages: [...state.supportMessages, msg],
+          notifications: newNotifs
+        };
+      }),
       clearSupportMessages: () => set({ supportMessages: [] }),
 
       stats: { revenue: 0, orders: 0, commissions: 0 },
@@ -207,10 +307,53 @@ export const useStore = create<AppState>()(
       addPayout: (p) => set((state) => ({ payouts: [p, ...state.payouts] })),
 
       botLogs: [],
-      addBotLog: (log) => set((state) => ({ botLogs: [log, ...state.botLogs] })),
+      addBotLog: (log) => set((state) => {
+        const newNotifs = [...state.notifications];
+        // Mirror bot log success / warning as a system notification
+        if (log.type === 'success' || log.type === 'error' || log.type === 'warning') {
+          newNotifs.unshift({
+            id: `notif-${Date.now()}`,
+            title: `Empire Bot: ${log.bot}`,
+            message: log.message,
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'bot',
+            read: false
+          });
+        }
+        return {
+          botLogs: [log, ...state.botLogs],
+          notifications: newNotifs
+        };
+      }),
       
       selectedProductId: null,
-      setSelectedProductId: (id) => set({ selectedProductId: id })
+      setSelectedProductId: (id) => set({ selectedProductId: id }),
+
+      notifications: [
+        {
+          id: 'init-notif-1',
+          title: 'Welcome to Aura Store',
+          message: 'Your high-converting dropshipping ecommerce pipeline is fully online and integrated.',
+          date: new Date().toLocaleDateString() + ' 12:00 PM',
+          type: 'system',
+          read: false
+        }
+      ],
+      addNotification: (n) => set((state) => ({
+        notifications: [
+          {
+            ...n,
+            id: `notif-${Date.now()}`,
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false
+          },
+          ...state.notifications
+        ]
+      })),
+      markAllNotificationsRead: () => set((state) => ({
+        notifications: state.notifications.map(n => ({ ...n, read: true }))
+      })),
+      clearNotifications: () => set({ notifications: [] })
     }),
     {
       name: 'aura-commerce-storage-v2',
