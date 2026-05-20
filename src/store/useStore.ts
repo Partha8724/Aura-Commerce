@@ -89,6 +89,9 @@ interface AppState {
 
   selectedProductId: string | null;
   setSelectedProductId: (id: string | null) => void;
+
+  isCartOpen: boolean;
+  setIsCartOpen: (val: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -96,6 +99,9 @@ export const useStore = create<AppState>()(
     (set) => ({
       hasSeenIntro: false,
       setHasSeenIntro: (val) => set({ hasSeenIntro: val }),
+
+      isCartOpen: false,
+      setIsCartOpen: (val) => set({ isCartOpen: val }),
 
       user: null,
       setUser: (user) => set({ user }),

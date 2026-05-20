@@ -15,7 +15,7 @@ interface ProductDetailProps {
 }
 
 export function ProductDetail({ productId }: ProductDetailProps) {
-  const { products, addToCart, settings, setSelectedProductId } = useStore();
+  const { products, addToCart, settings, setSelectedProductId, setIsCartOpen } = useStore();
   const product = products.find(p => p.id === productId);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -25,7 +25,7 @@ export function ProductDetail({ productId }: ProductDetailProps) {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [isWishlist, setIsWishlist] = useState(false);
-  const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'reviews' | 'qa'>('desc');
+  const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'reviews' | 'qa' | 'video'>('desc');
 
   const uniqueColors = Array.from(new Set((product?.variants || []).map((v: any) => v.color).filter(Boolean))) as string[];
   const uniqueSizes = Array.from(new Set((product?.variants || []).map((v: any) => v.size).filter(Boolean))) as string[];
@@ -111,6 +111,12 @@ export function ProductDetail({ productId }: ProductDetailProps) {
     addToCart(product);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
+  };
+
+  const handleBuyNow = () => {
+    addToCart(product);
+    setSelectedProductId(null);
+    setIsCartOpen(true);
   };
 
   return (
@@ -386,7 +392,10 @@ export function ProductDetail({ productId }: ProductDetailProps) {
               {isAdded ? "Added to Cart" : "Add to Cart"}
             </motion.button>
             <div className="flex gap-3">
-              <button className="flex-1 py-4 rounded-xl bg-transparent border border-white/20 text-white font-bold uppercase tracking-widest text-sm hover:bg-white/5 transition-all">
+              <button 
+                onClick={handleBuyNow}
+                className="flex-1 py-4 rounded-xl bg-transparent border border-white/20 text-white font-bold uppercase tracking-widest text-sm hover:bg-white/5 transition-all"
+              >
                 Buy Now
               </button>
               <button 
@@ -424,6 +433,7 @@ export function ProductDetail({ productId }: ProductDetailProps) {
           {[
             { id: 'desc', label: 'Description' },
             { id: 'specs', label: 'Specifications' },
+            ...(product.videoUrl ? [{ id: 'video', label: 'Demo Video' }] : []),
             { id: 'reviews', label: 'Reviews' },
             { id: 'qa', label: 'Q & A' },
           ].map(tab => (
@@ -447,6 +457,20 @@ export function ProductDetail({ productId }: ProductDetailProps) {
         </div>
 
         <div className="py-8 text-gray-300 bg-[#141414]/30 rounded-b-2xl px-6 border-x border-b border-white/5 min-h-[400px]">
+          {activeTab === 'video' && product.videoUrl && (
+            <div className="max-w-3xl space-y-6">
+              <h3 className="text-2xl font-bold text-white mb-4">Product Demonstration Video</h3>
+              <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 shadow-[0_0_50px_rgba(212,175,55,0.15)]">
+                <video 
+                  src={product.videoUrl} 
+                  controls 
+                  autoPlay 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
+
           {activeTab === 'desc' && (
             <div className="max-w-3xl space-y-6">
               <h3 className="text-2xl font-bold text-white mb-4">Product Description</h3>

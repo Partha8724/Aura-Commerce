@@ -219,6 +219,66 @@ function DashboardSection({ stats }: { stats: any }) {
   );
 }
 
+function ensureMultipleImages(currImages: string[] | undefined, title: string, category: string): string[] {
+  const list = currImages ? [...currImages].filter(Boolean) : [];
+  if (list.length === 0) {
+    list.push('https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800');
+  }
+  
+  const aestheticImages: Record<string, string[]> = {
+    'home': [
+      'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=800',
+    ],
+    'electronics': [
+      'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&q=80&w=800',
+    ],
+    'beauty': [
+      'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1608248597481-496100c8c836?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&q=80&w=800',
+    ],
+    'fashion': [
+      'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1479064555552-3ef4979f8908?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=800',
+    ]
+  };
+
+  const normalCategory = category.toLowerCase();
+  const catKey = Object.keys(aestheticImages).find(k => normalCategory.includes(k) || title.toLowerCase().includes(k)) || 'home';
+  const fallbacks = aestheticImages[catKey];
+
+  let i = 0;
+  while (list.length < 7 && i < fallbacks.length) {
+    if (!list.includes(fallbacks[i])) {
+      list.push(fallbacks[i]);
+    }
+    i++;
+  }
+
+  // Generate safe parameter variations of the first image if we're still low
+  let sig = 1;
+  const baseClean = list[0].split('?')[0];
+  while (list.length < 8) {
+    list.push(`${baseClean}?auto=format&fit=crop&q=80&w=800&sig=${sig}`);
+    sig++;
+  }
+
+  return list;
+}
+
 function BotsSection() {
   const { products, addProduct, botLogs, addBotLog, settings } = useStore();
   const [importUrl, setImportUrl] = useState('');
@@ -292,7 +352,7 @@ function BotsSection() {
                    rating: 4.5 + Math.random() * 0.5,
                    category: target.categoryName || 'General',
                    imageUrl: target.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
-                   images: gallery.length > 0 ? gallery : [target.productImage],
+                   images: ensureMultipleImages(gallery.length > 0 ? gallery : [target.productImage], target.productNameEn || target.productName || 'CJ Product', target.categoryName || 'General'),
                    weight: target.productWeight ? parseFloat(target.productWeight) : 0,
                    isNew: true,
                    isDemo: false,
@@ -328,7 +388,7 @@ function BotsSection() {
                    rating: 4.5 + Math.random() * 0.5,
                    category: prod.categoryName || 'General',
                    imageUrl: prod.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
-                   images: prod.productImage ? [prod.productImage] : [],
+                   images: ensureMultipleImages(prod.productImage ? [prod.productImage] : [], prod.productNameEn || prod.productName || 'CJ Product', prod.categoryName || 'General'),
                    weight: prod.productWeight || 0,
                    isNew: true,
                    isDemo: false,
@@ -453,7 +513,7 @@ function BotsSection() {
                 rating: parseFloat((4.5 + Math.random() * 0.5).toFixed(1)),
                 category: baseProd.category,
                 imageUrl: baseProd.imageUrl,
-                images: [baseProd.imageUrl],
+                images: ensureMultipleImages([baseProd.imageUrl], baseProd.title, baseProd.category),
                 weight: baseProd.weight,
                 isNew: true,
                 isDemo: false,
@@ -536,7 +596,7 @@ function BotsSection() {
             rating: 4.5 + Math.random() * 0.5,
             category: targetProd.categoryName || 'General',
             imageUrl: targetProd.productImage || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80',
-            images: gallery.length > 0 ? gallery : [targetProd.productImage],
+            images: ensureMultipleImages(gallery.length > 0 ? gallery : [targetProd.productImage], targetProd.productNameEn || targetProd.productName || 'Imported CJ Product', targetProd.categoryName || 'General'),
             weight: targetProd.productWeight ? parseFloat(targetProd.productWeight) : 0,
             discountEligible: true,
             isNew: true,
@@ -880,6 +940,9 @@ function ProductsSection() {
   const [editBasePrice, setEditBasePrice] = useState(0);
   const [editFinalPrice, setEditFinalPrice] = useState(0);
   const [editCommission, setEditCommission] = useState(0);
+  const [editImages, setEditImages] = useState<string[]>([]);
+  const [editVideoUrl, setEditVideoUrl] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   const categoriesList = ['Electronics', 'Fashion', 'Home & Garden', 'Beauty', 'Sports & Outdoors', 'General'];
 
@@ -891,6 +954,9 @@ function ProductsSection() {
       setEditBasePrice(editingProduct.basePrice || editingProduct.price || 0);
       setEditFinalPrice(editingProduct.finalPrice || editingProduct.price || 0);
       setEditCommission(editingProduct.commission || 0);
+      setEditImages(editingProduct.images || (editingProduct.imageUrl ? [editingProduct.imageUrl] : []));
+      setEditVideoUrl(editingProduct.videoUrl || '');
+      setNewImageUrl('');
     }
   }, [editingProduct]);
 
@@ -904,6 +970,17 @@ function ProductsSection() {
     setEditFinalPrice(editBasePrice + val);
   };
 
+  const handleAddImage = () => {
+    if (newImageUrl.trim()) {
+      setEditImages([...editImages, newImageUrl.trim()]);
+      setNewImageUrl('');
+    }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setEditImages(editImages.filter((_, idx) => idx !== indexToRemove));
+  };
+
   const handleSaveChanges = () => {
     if (!editingProduct) return;
     updateProduct(editingProduct.id, {
@@ -912,7 +989,10 @@ function ProductsSection() {
       description: editDescription,
       price: editFinalPrice,
       commission: editCommission,
-      finalPrice: editFinalPrice
+      finalPrice: editFinalPrice,
+      images: editImages,
+      imageUrl: editImages[0] || editingProduct.imageUrl,
+      videoUrl: editVideoUrl
     });
     setEditingProduct(null);
   };
@@ -1094,6 +1174,57 @@ function ProductsSection() {
                     className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm resize-none transition-all font-sans"
                   />
                   <p className="text-[10px] text-gray-500 text-right mt-1">Crafted for maximum dropshipping conversion copy.</p>
+                </div>
+
+                {/* MANUAL VIDEO DESCRIPTION */}
+                <div className="border-t border-white/5 pt-4">
+                  <label className="text-xs text-[#D4AF37] uppercase tracking-widest font-bold mb-2 block">Manual Product Video URL</label>
+                  <input 
+                    type="url" 
+                    placeholder="e.g. https://example.com/demo.mp4"
+                    value={editVideoUrl}
+                    onChange={e => setEditVideoUrl(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm transition-all font-mono"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Provide direct mp4 link to enable live video tab and previews.</p>
+                </div>
+
+                {/* MANUAL MULTIPLE IMAGES MANAGEMENT */}
+                <div className="border-t border-white/5 pt-4 space-y-3">
+                  <label className="text-xs text-[#D4AF37] uppercase tracking-widest font-bold mb-1 block">Manual Product Images Gallery</label>
+                  
+                  {/* Gallery Grid preview */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {editImages.map((img, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 bg-black group">
+                        <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => handleRemoveImage(idx)}
+                          className="absolute inset-0 bg-red-600/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold font-sans"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Image Control */}
+                  <div className="flex gap-2">
+                    <input 
+                      type="url"
+                      placeholder="Add image URL (e.g. Unsplash or CDN)"
+                      value={newImageUrl}
+                      onChange={e => setNewImageUrl(e.target.value)}
+                      className="flex-1 bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-[#D4AF37] outline-none text-xs font-mono"
+                    />
+                    <button 
+                      onClick={handleAddImage}
+                      className="px-4 py-2.5 bg-white/10 border border-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl transition-all"
+                    >
+                      Add Image
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500">Provide high-quality URLs. The top image serves as the default hero placement.</p>
                 </div>
               </div>
 

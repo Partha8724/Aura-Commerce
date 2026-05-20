@@ -7,11 +7,10 @@ import { CartDrawer } from './CartDrawer';
 export function TopNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   
-  const { activeTab, setActiveTab, cart, stats, user, setUser } = useStore();
+  const { activeTab, setActiveTab, cart, stats, user, setUser, isCartOpen, setIsCartOpen } = useStore();
 
   const [bouncing, setBouncing] = useState(false);
   const totalItems = cart.reduce((acc, item) => acc + item.cartQuantity, 0);
@@ -143,7 +142,7 @@ export function TopNav() {
             )}
 
             <button 
-              onClick={() => setCartOpen(true)}
+              onClick={() => setIsCartOpen(true)}
               className="relative text-[#D4AF37] hover:text-[#F4D03F] transition-all duration-300 p-2 bg-[#D4AF37]/10 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:bg-[#D4AF37]/20"
             >
               <motion.div animate={bouncing ? { scale: [1, 1.2, 1], rotate: [0, -10, 10, 0] } : {}} transition={{ duration: 0.3 }}>
@@ -247,7 +246,7 @@ export function TopNav() {
         )}
       </nav>
 
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 }
