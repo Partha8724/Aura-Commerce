@@ -67,6 +67,7 @@ interface AppState {
 
   products: Product[];
   addProduct: (p: Product) => void;
+  addProductsBulk: (pList: Product[]) => void;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
   removeDemoProducts: () => void;
@@ -127,6 +128,9 @@ export const useStore = create<AppState>()(
       products: [],
       addProduct: (p) => set((state) => {
         return { products: [p, ...state.products] };
+      }),
+      addProductsBulk: (pList) => set((state) => {
+        return { products: [...pList, ...state.products] };
       }),
       updateProduct: (id, updates) => set((state) => ({
         products: state.products.map(p => p.id === id ? { ...p, ...updates } : p)

@@ -280,10 +280,141 @@ function ensureMultipleImages(currImages: string[] | undefined, title: string, c
 }
 
 function BotsSection() {
-  const { products, addProduct, botLogs, addBotLog, settings } = useStore();
+  const { products, addProduct, addProductsBulk, botLogs, addBotLog, settings, addNotification } = useStore();
   const [importUrl, setImportUrl] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [margin, setMargin] = useState('15');
+
+  // Bulk Electronics Bot States
+  const [bulkCount, setBulkCount] = useState<number>(100);
+  const [bulkMargin, setBulkMargin] = useState<string>('20');
+  const [bulkStatus, setBulkStatus] = useState<string | null>(null);
+  const [bulkStepMsg, setBulkStepMsg] = useState<string>('');
+
+  const handleBulkDeploy = () => {
+    setBulkStatus('loading');
+    setBulkStepMsg('Initializing Aura AI Electronic Crawler Engine...');
+    
+    // Add initial log
+    addBotLog({
+      id: `bulk-start-${Date.now()}`,
+      bot: 'Bulk Electronics Bot',
+      message: `Deploying Auto-Importer for ${bulkCount} luxury electronics products with ${bulkMargin}% commission...`,
+      date: new Date().toLocaleTimeString(),
+      type: 'info'
+    });
+
+    const timers = [
+      { msg: 'Scanning partner logistics & supplier inventories...', time: 500 },
+      { msg: `Scraping high-fidelity image portfolios for ${bulkCount} products...`, time: 1000 },
+      { msg: `Applying smart pricing logic (Supplier Base + ${bulkMargin}% Net Commission)...`, time: 1500 },
+      { msg: 'Structuring data schemas & testing checkout compatibility...', time: 2000 },
+      { msg: `Registering ${bulkCount} fully active digital assets...`, time: 2400 }
+    ];
+
+    timers.forEach(({ msg, time }) => {
+      setTimeout(() => {
+        setBulkStepMsg(msg);
+      }, time);
+    });
+
+    setTimeout(() => {
+      const count = bulkCount;
+      const marginPercent = parseFloat(bulkMargin) / 100;
+      
+      const prefixes = [
+        'Aura', 'Quantum', 'Nexus', 'Apex', 'Spectre', 'Zenith', 'Valo', 'Hyperion', 'Eclipse', 'Vector', 'Pulse', 'Syntrax', 'Omni', 'Vapor', 'Titan', 'Aether', 'Aegis', 'Soniq'
+      ];
+      const midNames = [
+        'Pro', 'Elite', 'Ultra', 'Max', 'Stealth', 'Signature', 'Neo', 'Prime', 'Minimalist', 'Carbon', 'Wireless', 'Smart', 'Ergonomic', 'Next-Gen', 'Nomad', 'X-Series'
+      ];
+      const coreProducts = [
+        { name: 'Noise-Cancelling Earbuds', unsplashTerm: 'earbuds', desc: 'Experience auditory perfection with active noise isolation, ambient bypass mode, and 45-hour total battery reserve.' },
+        { name: 'Fitness Tracker Watch', unsplashTerm: 'smartwatch', desc: 'Monitor your vitals, sleep structure, and VO2 max in real-time. Features an ultra-bright AMOLED scratch-resistant always-on screen.' },
+        { name: 'Mechanical Keyboard', unsplashTerm: 'keyboard', desc: 'Hot-swappable tactile linear switches with gasket mounting and low-latency tri-mode wireless connectivity.' },
+        { name: 'Portable Power Bank', unsplashTerm: 'powerbank', desc: '20,000mAh rapid power reserve offering multiple high-power USB-C Power Delivery outputs.' },
+        { name: 'LED Atmosphere Lamp', unsplashTerm: 'lamp', desc: 'Transform your room with multi-spectral dynamic illumination. Syncs seamlessly with music channels.' },
+        { name: 'Ergonomic Vertical Mouse', unsplashTerm: 'mouse', desc: 'Reduces long-session wrist strain. Precision tracking optical sensor with silent switches and hyper-fast metal scroll wheel.' },
+        { name: '4K Ultra Action Camera', unsplashTerm: 'camera', desc: 'Capture fluid high-velocity moments in stunning 4K 120FPS with advanced multi-axis gimbal-like stabilization.' },
+        { name: 'Ultrasonic Cool Mist Humidifier', unsplashTerm: 'humidifier', desc: 'Restructures ambient air humidity with an ultra-quiet misting mechanism. Built-in essential oil diffuser.' },
+        { name: 'Wireless Charging Dock 3-in-1', unsplashTerm: 'charger', desc: 'Consolidate desktop cable clutter. Power up your smartphone, watch, and wireless earbud capsules in a unified sleek charging plate.' },
+        { name: 'Compact 4K Smart Projector', unsplashTerm: 'projector', desc: 'Cinematic theater quality in your pocket. Packs a high-efficiency lamp generating rich contrast.' },
+        { name: 'Virtual Reality Headset Duo', unsplashTerm: 'vr', desc: 'Step into vivid metaverses with dual 4K wide-angle pancake lenses, fast-response spatial tracking, and custom balanced head straps.' },
+        { name: 'Ultra-High Speed External SSD', unsplashTerm: 'ssd', desc: 'Move multi-gigabyte media streams in seconds. Solid-state technology encased in water-resistant shock-absorbing enclosure.' },
+        { name: 'Premium Bluetooth Soundbar', unsplashTerm: 'soundbar', desc: 'Immersive virtual surround spatial audio in an ultra-low profile chassis. Pairs effortlessly.' },
+        { name: 'GPS Explorer Drone Pro', unsplashTerm: 'drone', desc: 'Ascend to new vantage points. Intelligent follow-me capabilities with real-time obstacle avoidance radars.' },
+        { name: 'Sleek Laptop Heatsink Stand', unsplashTerm: 'laptop', desc: 'Dual-fan silent cooling core coupled with an adjustable aerospace-grade aluminum elevate-stand.' }
+      ];
+
+      const list: Product[] = [];
+      
+      for (let i = 1; i <= count; i++) {
+        const pref = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const mid = midNames[Math.floor(Math.random() * midNames.length)];
+        const itemInfo = coreProducts[Math.floor(Math.random() * coreProducts.length)];
+        
+        const baseTitle = `${pref} ${mid} ${itemInfo.name}`;
+        const countMatches = list.filter(item => item.title.startsWith(baseTitle)).length;
+        const finalTitle = countMatches > 0 ? `${baseTitle} (${countMatches + 1})` : baseTitle;
+        const basePrice = Math.floor(Math.random() * 140) + 20;
+        const commission = parseFloat((basePrice * marginPercent).toFixed(2));
+        const finalPrice = parseFloat((basePrice + commission).toFixed(2));
+        
+        const itemSearch = itemInfo.unsplashTerm;
+        const sig = Math.floor(Math.random() * 2000) + i;
+        const imageUrl = `https://images.unsplash.com/featured/800x800/?tech,${itemSearch}&sig=${sig}`;
+
+        list.push({
+          id: `bot-elec-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`,
+          title: finalTitle,
+          description: `The ${finalTitle} represents a major leap in premium user experience. ${itemInfo.desc} Sourced through verified tier-1 logistics channels, certifying retail perfection and instant compatibility.`,
+          supplier: 'AURA Electronics Bot',
+          supplierLogo: '⚡',
+          category: 'Electronics',
+          basePrice,
+          commission,
+          finalPrice,
+          stock: Math.floor(Math.random() * 1200) + 120,
+          sold: Math.floor(Math.random() * 150) + 10,
+          rating: parseFloat((4.2 + Math.random() * 0.8).toFixed(1)),
+          reviews: Math.floor(Math.random() * 180) + 5,
+          shipping: 'Express Tracked Shipping',
+          delivery: '3-6 Days',
+          discount: Math.random() > 0.8 ? Math.floor(Math.random() * 20) + 5 : 0,
+          isHot: Math.random() > 0.7,
+          isNew: true,
+          isDemo: false,
+          tags: ['electronics', 'premium', 'automation-imported'],
+          images: [imageUrl, `https://images.unsplash.com/featured/800x800/?gadget,${itemSearch}&sig=${sig + 500}`],
+          imageUrl
+        });
+      }
+
+      addProductsBulk(list);
+
+      // System notification
+      addNotification({
+        title: 'Automation Bot Deployed!',
+        message: `Successfully imported ${count} electronics products. Your storefront inventory is updated.`,
+        type: 'system'
+      });
+
+      // Bot activity log
+      addBotLog({
+        id: `bulk-success-${Date.now()}`,
+        bot: 'Bulk Electronics Bot',
+        message: `PROTOCOL SUCCESSFUL: Deployed ${count} premium electronics items into production catalogue! Current average markup is ${bulkMargin}%.`,
+        date: new Date().toLocaleTimeString(),
+        type: 'success'
+      });
+
+      setBulkStatus('success');
+      setTimeout(() => {
+        setBulkStatus(null);
+      }, 3500);
+
+    }, 2800);
+  };
 
   const handleImport = async () => {
     setImportStatus('connecting');
@@ -750,6 +881,84 @@ function BotsSection() {
           >
             {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {isScanning ? 'Scanning...' : 'Run Scan Now'}
+          </button>
+        </div>
+
+        {/* BOT 3: BULK ELECTRONICS BOT */}
+        <div className="bg-[#141414] rounded-2xl border border-[#D4AF37]/20 p-6 flex flex-col">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-xl font-bold text-white mb-1">🤖 Bulk Electronics Importer Bot</h3>
+              <p className="text-sm text-gray-400">Instantly deploy 100 or 200 electronics to your storefront.</p>
+            </div>
+            <span className="bg-[#D4AF37]/10 text-[#D4AF37] px-3 py-1 rounded text-xs font-bold uppercase tracking-wider border border-[#D4AF37]/25 shrink-0 animate-pulse">Ready</span>
+          </div>
+
+          <div className="space-y-5 mb-6 flex-1">
+            <div>
+               <label className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 block font-sans">Import Quantity</label>
+               <div className="grid grid-cols-2 gap-4">
+                  <button 
+                     type="button"
+                     onClick={() => setBulkCount(100)}
+                     className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                       bulkCount === 100 
+                         ? 'bg-[#D4AF37] text-black border-[#D4AF37]' 
+                         : 'bg-[#0A0A0A] text-gray-400 border-white/5 hover:border-white/20'
+                     }`}
+                  >
+                     100 Products
+                  </button>
+                  <button 
+                     type="button"
+                     onClick={() => setBulkCount(200)}
+                     className={`py-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                       bulkCount === 200 
+                         ? 'bg-[#D4AF37] text-black border-[#D4AF37]' 
+                         : 'bg-[#0A0A0A] text-gray-400 border-white/5 hover:border-white/20'
+                     }`}
+                  >
+                     200 Products
+                  </button>
+               </div>
+            </div>
+
+            <div>
+               <div className="flex justify-between text-xs font-sans text-gray-400 uppercase tracking-wider font-bold mb-2">
+                  <span>Commission Markup</span>
+                  <span className="text-[#D4AF37] text-sm font-mono font-bold">+{bulkMargin}%</span>
+               </div>
+               <input 
+                 type="range" 
+                 min="5" max="50" 
+                 value={bulkMargin}
+                 onChange={e => setBulkMargin(e.target.value)}
+                 className="w-full accent-[#D4AF37]" 
+               />
+            </div>
+          </div>
+
+          <button 
+            onClick={handleBulkDeploy}
+            disabled={bulkStatus !== null}
+            className="w-full py-4 bg-gradient-to-r from-[#D4AF37] to-[#ffd700] text-black font-extrabold uppercase tracking-widest text-xs rounded-xl disabled:opacity-80 flex flex-col items-center justify-center gap-1 min-h-[64px]"
+          >
+            {bulkStatus === 'loading' ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 py-1">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-black" />
+                  <span className="text-[10px] text-black font-black tracking-widest animate-pulse uppercase">Scaling Catalog...</span>
+                </div>
+                <span className="text-[9px] text-zinc-900 font-mono font-bold leading-none">{bulkStepMsg}</span>
+              </div>
+            ) : bulkStatus === 'success' ? (
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-black" />
+                <span>Deployed Perfectly!</span>
+              </div>
+            ) : (
+              <span>Deploy Bulk Importer Bot</span>
+            )}
           </button>
         </div>
 
