@@ -9,6 +9,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const [checkoutStep, setCheckoutStep] = useState(0); // 0: cart, 1: details, 2: processing, 3: success
   const [formData, setFormData] = useState({ name: '', email: '', cc: '' });
   const [paymentType, setPaymentType] = useState('card');
+  const [checkoutTotal, setCheckoutTotal] = useState(0);
 
   if (!isOpen) return null;
 
@@ -41,6 +42,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         paymentMethod: 'PayPal'
       };
       
+      setCheckoutTotal(totalCost);
       addOrder(newOrder);
       addStats(totalCost, 0);
       clearCart();
@@ -69,6 +71,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         paymentMethod: paymentType === 'cod' ? 'Cash on Delivery (COD)' : 'Credit Card'
       };
       
+      setCheckoutTotal(totalCost);
       addOrder(newOrder);
       addStats(totalCost, 0);
       clearCart();
@@ -209,7 +212,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                <div className="bg-[#0A0A0A] border border-[#D4AF37]/30 rounded-xl p-6 w-full text-left space-y-4 shadow-[0_0_20px_rgba(212,175,55,0.1)]">
                  <div className="flex justify-between border-b border-white/10 pb-4">
                    <span className="text-gray-400 text-sm">{paymentType === 'cod' ? 'Total to Pay on Delivery' : 'Total Paid'}</span>
-                   <span className="font-bold text-white font-mono">${totalCost.toFixed(2)}</span>
+                   <span className="font-bold text-white font-mono">${checkoutTotal.toFixed(2)}</span>
                  </div>
                </div>
 

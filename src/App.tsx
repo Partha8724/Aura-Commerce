@@ -54,6 +54,60 @@ export default function App() {
 
   useEffect(() => {
     async function initSupabaseSync() {
+      // Load current central orders from Supabase Database
+      try {
+        const { data: dbOrders, error: orderErr } = await supabase
+          .from('orders')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (dbOrders && !orderErr) {
+          console.log('[Supabase Sync] Fetched central orders:', dbOrders.length);
+          const mappedOrders = dbOrders.map((o: any) => {
+            let parsedItems = [];
+            try {
+              parsedItems = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+            } catch {
+              parsedItems = o.items || [];
+            }
+            if (!Array.isArray(parsedItems)) parsedItems = [];
+            
+            let parsedUpdates = [];
+            try {
+              parsedUpdates = typeof o.tracking_updates === 'string' 
+                ? JSON.parse(o.tracking_updates) 
+                : (o.tracking_updates || o.trackingUpdates || []);
+            } catch {
+              parsedUpdates = o.trackingUpdates || [];
+            }
+            if (!Array.isArray(parsedUpdates)) parsedUpdates = [];
+
+            return {
+              id: o.id,
+              customerName: o.customerName || o.customer_name || 'Customer',
+              email: o.email || '',
+              total: parseFloat(o.total) || 0,
+              commissionEarned: parseFloat(o.commissionEarned || o.commission_earned) || 0,
+              status: o.status || 'Processing',
+              date: o.date || new Date().toISOString(),
+              items: parsedItems,
+              trackingNumber: o.trackingNumber || o.tracking_number,
+              trackingUpdates: parsedUpdates,
+              supplier: o.supplier || 'CJ Dropshipping',
+              paymentMethod: o.paymentMethod || o.payment_method,
+              estimatedDelivery: o.estimatedDelivery || o.estimated_delivery,
+              cancelReason: o.cancelReason || o.cancel_reason
+            };
+          });
+          
+          useStore.setState({ orders: mappedOrders });
+        } else if (orderErr) {
+          console.warn('[Supabase Sync] orders table check failed:', orderErr.message);
+        }
+      } catch (err: any) {
+        console.warn('[Supabase Sync] Exception initialising central orders:', err);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         try {

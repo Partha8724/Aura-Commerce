@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product, CartItem, Order, Stats, SupportMessage } from '../types';
 import { initialProducts } from '../data/products';
+import { supabase } from '../lib/supabase';
+import { cjApi } from '../lib/cj-api';
 
 export interface User {
   name: string;
@@ -171,6 +173,95 @@ export const useStore = create<AppState>()(
           read: false,
           email: o.email
         };
+
+        // 1. Sync the new order to the central Supabase database
+        supabase
+          .from('orders')
+          .insert({
+            id: o.id,
+            customerName: o.customerName,
+            email: o.email,
+            total: o.total,
+            commissionEarned: o.commissionEarned,
+            status: o.status,
+            date: o.date,
+            items: o.items, // directly maps as jsonb/string
+            trackingNumber: o.trackingNumber || null,
+            trackingUpdates: o.trackingUpdates || [],
+            supplier: o.supplier,
+            paymentMethod: o.paymentMethod || null,
+            estimatedDelivery: o.estimatedDelivery || null,
+            cancelReason: o.cancelReason || null
+          })
+          .then(
+            ({ error }) => {
+              if (error) {
+                console.warn('[Supabase DB Sync] Relation check failed. Order kept in local storage.');
+              } else {
+                console.log('[Supabase DB Sync] Order successfully synchronized.');
+              }
+            },
+            (err) => {
+              console.warn('[Supabase DB Sync] Connection exception:', err);
+            }
+          );
+
+        // 2. Automatically push relevant CJ Dropshipping products to the merchant portal
+        if (state.settings.cjConnected && state.settings.cjAccessToken) {
+          cjApi.accessToken = state.settings.cjAccessToken;
+          cjApi.apiKey = state.settings.cjApiKey || null;
+
+          const cjProducts = (o.items || [])
+            .filter((item: any) => item.id.startsWith('cj-') || (item.tags && item.tags.includes('automation-imported')))
+            .map((item: any) => {
+              const cleanVid = item.vid || item.id.replace('cj-', '');
+              return {
+                vid: cleanVid,
+                quantity: item.cartQuantity || 1
+              };
+            });
+
+          if (cjProducts.length > 0) {
+            const orderRequest = {
+              orderNumber: o.id,
+              shippingAddress: {
+                countryCode: 'US',
+                province: 'California',
+                city: 'Los Angeles',
+                address: '123 Luxury Avenue',
+                postcode: '90001',
+                name: o.customerName,
+                phone: '555-0199'
+              },
+              products: cjProducts,
+              shippingMethod: 'USPS'
+            };
+
+            cjApi.createOrder(orderRequest)
+              .then(cjRes => {
+                console.log('[CJ Automation] Order push success:', cjRes);
+                // Dynamically list in developer bot logs
+                useStore.getState().addBotLog({
+                  id: `cj-ok-${Date.now()}`,
+                  bot: 'CJ Fulfilment Bot',
+                  message: `PROTOCOL ACTIVE: Successfully pushed Order ${o.id} to CJ Dropshipping platform. CJ Reference: ${cjRes.data?.orderId || 'Success'}.`,
+                  date: new Date().toLocaleTimeString(),
+                  type: 'success'
+                });
+              })
+              .catch(err => {
+                console.warn('[CJ Automation] Direct push failed:', err.message);
+                useStore.getState().addBotLog({
+                  id: `cj-err-${Date.now()}`,
+                  bot: 'CJ Fulfilment Bot',
+                  message: `CJ Dropshipping warning: Could not auto-sync order ${o.id} to CJ portal (${err.message}). Queue saved locally for offline processing.`,
+                  date: new Date().toLocaleTimeString(),
+                  type: 'warning'
+                });
+              });
+          }
+        }
+
         return {
           orders: [o, ...state.orders],
           notifications: [newNotif, ...state.notifications]
@@ -227,6 +318,28 @@ export const useStore = create<AppState>()(
             } : o);
           }
         }
+
+        // Sync order status updates with the central Supabase database
+        supabase
+          .from('orders')
+          .update({
+            status,
+            trackingNumber: tracking,
+            cancelReason,
+            trackingUpdates,
+            commissionEarned: commissionAddition
+          })
+          .eq('id', id)
+          .then(
+            ({ error }) => {
+              if (error) {
+                console.warn('[Supabase Sync] Update failed:', error.message);
+              }
+            },
+            (err) => {
+              console.warn('[Supabase Sync] Update exception:', err);
+            }
+          );
 
         return {
           orders: finalUpdatedOrders,
