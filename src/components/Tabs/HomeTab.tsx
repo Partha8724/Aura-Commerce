@@ -1,12 +1,232 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { useStore } from '../../store/useStore';
-import { ArrowRight, Play, ShoppingCart, TrendingUp, ShieldCheck, Server, Bot, Search, Sparkles, Zap, Shield, Globe } from 'lucide-react';
+import { ArrowRight, Play, ShoppingCart, TrendingUp, ShieldCheck, Server, Bot, Search, Sparkles, Zap, Shield, Globe, Gift, Star, Clock } from 'lucide-react';
 import { ProductCard } from '../ProductCard';
 import { ProductFlipCard } from '../ProductFlipCard';
 
+function TiltDealCard({ product, addToCart }: { product: any; addToCart: (p: any) => void }) {
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xc = rect.width / 2;
+    const yc = rect.height / 2;
+    const rotateYVal = ((x - xc) / xc) * 16; 
+    const rotateXVal = -((y - yc) / yc) * 16; 
+    setCoords({ x: rotateXVal, y: rotateYVal });
+  };
+
+  const handleMouseLeave = () => {
+    setCoords({ x: 0, y: 0 });
+    setIsHovered(false);
+  };
+
+  const discountAmount = 20;
+
+  return (
+    <motion.div
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setIsHovered(true)}
+      animate={{ 
+        rotateX: coords.x, 
+        rotateY: coords.y,
+        scale: isHovered ? 1.03 : 1
+      }}
+      transition={{ type: "spring", stiffness: 200, damping: 20 }}
+      style={{ transformStyle: "preserve-3d" }}
+      className="relative aspect-[4/5] w-full rounded-[32px] bg-gradient-to-b from-zinc-900 via-neutral-950 to-black border border-white/10 p-6 flex flex-col justify-between overflow-hidden shadow-2xl group cursor-pointer hover:border-[#D4AF37]/50"
+    >
+      {/* Dynamic Cursor Light Overlay */}
+      <div className="absolute inset-0 bg-radial-gradient from-white/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+      {/* Floating Sparkle glow ball */}
+      <div className="absolute -top-10 -left-10 w-40 h-40 bg-[#D4AF37]/5 blur-3xl rounded-full group-hover:bg-[#7C3AED]/15 transition-colors duration-700" />
+
+      {/* Badge container with 3D Pop effect */}
+      <div className="flex justify-between items-center z-10" style={{ transform: "translateZ(40px)" }}>
+        <span className="px-3.5 py-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-[#D4AF37] text-white font-sans text-[10px] font-black uppercase tracking-widest rounded-full shadow-lg shadow-red-600/30 animate-pulse flex items-center gap-1">
+          <Star className="w-3 h-3 fill-white stroke-none" /> BEST DEAL -{discountAmount}%
+        </span>
+        <span className="text-zinc-500 font-mono text-[9px] uppercase font-bold bg-white/5 px-2.5 py-0.5 rounded-full border border-white/5">
+          STOCK: {product.stock || 999}
+        </span>
+      </div>
+
+      {/* Image container with 3D translation effect */}
+      <div 
+        className="w-full relative aspect-square my-4 rounded-2xl overflow-hidden bg-black border border-white/5 shadow-inner"
+        style={{ transform: "translateZ(60px)" }}
+      >
+        <img 
+          src={product.imageUrl} 
+          alt={product.title} 
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+      </div>
+
+      {/* Product metadata body */}
+      <div className="space-y-2 z-10" style={{ transform: "translateZ(50px)" }}>
+        <span className="text-[9px] text-[#D4AF37] tracking-[0.2em] font-black uppercase block font-sans">
+          {product.category || 'Atelier Exclusive'}
+        </span>
+        <h3 className="text-lg md:text-xl font-black text-white uppercase tracking-tight line-clamp-1 group-hover:text-[#D4AF37] transition-colors">
+          {product.title}
+        </h3>
+        
+        <p className="text-zinc-500 text-xs line-clamp-2 leading-relaxed h-[2rem]">
+          {product.description}
+        </p>
+
+        {/* Pricing tag row */}
+        <div className="flex items-end justify-between pt-3 border-t border-white/5 mt-2">
+          <div>
+            <div className="text-[8px] uppercase tracking-widest text-[#D4AF37] font-black">Limited Time Cost</div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xl font-mono font-black text-white">
+                ${(product.finalPrice || product.price || 99).toFixed(2)}
+              </span>
+              <span className="text-xs font-mono text-zinc-650 line-through">
+                ${((product.finalPrice || product.price || 99) * (1 + discountAmount / 100)).toFixed(2)}
+              </span>
+            </div>
+          </div>
+          
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              addToCart(product);
+            }}
+            className="px-4 py-2.5 bg-[#D4AF37] hover:bg-white text-black font-black uppercase text-[10px] tracking-wider rounded-xl transition-all duration-300 transform active:scale-95 flex items-center gap-1 cursor-pointer shadow-lg shadow-[#D4AF37]/15"
+          >
+            <ShoppingCart className="w-3.5 h-3.5 text-black stroke-[3px]" />
+            SECURE
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TypewriterText({ options }: { options: string[] }) {
+  const [displayText, setDisplayText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [typingIndex, setTypingIndex] = useState(0);
+
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    const currentFullText = options[typingIndex];
+    
+    if (isDeleting) {
+      if (displayText.length > 0) {
+        timeout = setTimeout(() => {
+          setDisplayText(currentFullText.substring(0, displayText.length - 1));
+        }, 25);
+      } else {
+        setIsDeleting(false);
+        setTypingIndex((prev) => (prev + 1) % options.length);
+      }
+    } else {
+      if (displayText.length < currentFullText.length) {
+        timeout = setTimeout(() => {
+          setDisplayText(currentFullText.substring(0, displayText.length + 1));
+        }, 40);
+      } else {
+        timeout = setTimeout(() => {
+          setIsDeleting(true);
+        }, 2200);
+      }
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [displayText, isDeleting, typingIndex, options]);
+
+  return (
+    <span className="font-mono text-zinc-400 text-xs md:text-sm tracking-wide lowercase">
+      {displayText}
+      <motion.span 
+         animate={{ opacity: [1, 0] }}
+         transition={{ repeat: Infinity, duration: 0.6 }}
+         className="w-2 h-4 inline-block ml-1 bg-[#D4AF37] align-middle" 
+      />
+    </span>
+  );
+}
+
+function EssentialCard({ product, addToCart }: { product: any; addToCart: (p: any) => void }) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <motion.div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      whileHover={{ y: -8 }}
+      className="bg-[#111111]/90 border border-white/5 rounded-3xl p-5 relative overflow-hidden group hover:border-[#D4AF37]/30 transition-all duration-300 shadow-xl flex flex-col justify-between"
+    >
+      {/* Decorative backing light gradient */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37]/5 via-[#7C3AED]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
+      <div>
+        {/* Aspect Ratio Box centered with touch target sizes */}
+        <div className="relative aspect-square w-full rounded-2xl bg-black border border-white/10 overflow-hidden mb-5 shadow-inner">
+          <img 
+            src={product.imageUrl} 
+            alt={product.title} 
+            className="w-full h-full object-cover transition-transform duration-750 group-hover:scale-105"
+          />
+          {product.supplier === 'Partner Premium' && (
+            <span className="absolute top-3 left-3 px-3 py-1 bg-gradient-to-r from-yellow-500 via-amber-600 to-[#D4AF37] text-black font-sans text-[8px] font-black uppercase tracking-widest rounded-full shadow-lg border border-[#D4AF37]/30">
+              👑 PARTNER ESSENTIAL
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+              {product.category}
+            </span>
+            <span className="text-zinc-650 text-[9px] font-mono">SUPPLIER: {product.supplier === 'Partner Premium' ? 'PARTNER' : 'ATELIER'}</span>
+          </div>
+
+          <h3 className="font-bold text-white text-base md:text-lg group-hover:text-[#D4AF37] transition-colors truncate">
+            {product.title}
+          </h3>
+
+          <p className="text-zinc-400 text-xs line-clamp-2 leading-relaxed min-h-[2rem]">
+            {product.description}
+          </p>
+        </div>
+      </div>
+
+      <div className="border-t border-white/5 pt-4 mt-5 flex items-center justify-between">
+        <div>
+          <span className="text-[8px] uppercase font-bold text-gray-500 block">Atelier Cost</span>
+          <span className="text-lg font-mono font-bold text-white">
+            ${(product.finalPrice || product.price || 0).toFixed(2)}
+          </span>
+        </div>
+
+        <button
+          onClick={() => addToCart(product)}
+          className="px-4 py-2.5 bg-white hover:bg-[#D4AF37] text-black font-extrabold uppercase text-[9px] tracking-wider rounded-xl transition-all duration-300 transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          ADD OUTLET
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 export function HomeTab() {
-  const { setActiveTab, stats, products, settings } = useStore();
+  const { setActiveTab, stats, products, settings, addToCart } = useStore();
   const containerRef = useRef(null);
   
   const { scrollYProgress } = useScroll({
@@ -237,6 +457,49 @@ export function HomeTab() {
                   transition={{ delay: i * 0.2 }}
                 >
                   <ProductFlipCard product={p} />
+                </motion.div>
+             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TODAY'S BEST DEALS SECTION - 3D INTERACTIVE TILT STAGE */}
+      <section className="py-32 bg-gradient-to-b from-[#050505] via-[#050505] to-[#0A0A0A] relative overflow-hidden border-t border-b border-white/5">
+        {/* Radial glow to replace raw black and white */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] bg-gradient-to-r from-purple-500/10 via-[#D4AF37]/10 to-transparent blur-[140px] pointer-events-none rounded-full" />
+        
+        <div className="max-w-[1400px] mx-auto px-6 relative z-10 w-full">
+          <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-20 gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                <span className="text-[#D4AF37] text-xs font-black tracking-[0.4em] uppercase">LIVE MARGIN OPTIMIZATION ON</span>
+              </div>
+              <h2 className="text-4xl md:text-7xl font-display font-black text-white uppercase tracking-tight leading-none">
+                TODAY'S BEST <br />
+                <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Explosive Deals</span>
+              </h2>
+            </div>
+            <div className="text-left md:text-right max-w-sm md:max-w-md">
+              <p className="text-zinc-400 text-xs md:text-sm font-light leading-relaxed mb-4">
+                Bypassing standard retailer markups. Handpicked daily micro-drops certified for rapid checkout, low weight shipping, and 30%+ net margins.
+              </p>
+              <div className="flex items-center md:justify-end gap-2 text-xs text-[#D4AF37] font-mono">
+                <Clock className="w-4 h-4 text-[#D4AF37]" />
+                <span>DEAL ENGINE REFRESHES IN: 14HRS 28MIN</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+             {products.slice(0, 3).map((p) => (
+                <motion.div
+                  key={`deal-${p.id}`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                >
+                  <TiltDealCard product={p} addToCart={addToCart} />
                 </motion.div>
              ))}
           </div>
@@ -505,6 +768,56 @@ export function HomeTab() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ESSENTIALS PRODUCT FOR YOU SECTION - DYNAMIC SPOTLIGHT GRID WITH TYPEWRITER */}
+      <section className="py-32 bg-black relative border-t border-b border-zinc-900 overflow-hidden">
+        {/* Glow backdrop element */}
+        <div className="absolute top-1/2 left-10 w-[450px] h-[450px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-[350px] h-[350px] bg-[#D4AF37]/5 blur-[100px] pointer-events-none rounded-full" />
+        
+        <div className="max-w-[1400px] mx-auto px-6 relative z-10 w-full">
+          <div className="mb-20">
+            <span className="text-[#D4AF37] text-[10px] md:text-xs font-black tracking-[0.45em] uppercase block mb-4">EXCLUSIVE PARTNER SHOWCASE</span>
+            <h2 className="text-4xl md:text-7xl font-display font-black text-white uppercase tracking-tight leading-none mb-6">
+              ESSENTIALS FOR <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Your Roster</span>
+            </h2>
+            
+            {/* Typewriter subtitle */}
+            <div className="mt-4 flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl py-3 px-5 w-fit">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse shrink-0" />
+              <TypewriterText options={[
+                "Hand-crafted physical goods vetted for the high-end marketplace...",
+                "Aerospace-grade durability matched with ultra-sleek lifestyle aesthetics...",
+                "Integrated directly from verified partner dealer warehouses globally...",
+                "Express logistics delivering retail perfection within 4 business days..."
+              ]} />
+            </div>
+          </div>
+
+          {/* Dynamic reactive list */}
+          {(() => {
+            const partnerUploaded = products.filter(p => p.supplier === 'Partner Premium');
+            const fallbackProducts = products.filter(p => p.id === 'cj-1001' || p.id === 'cj-1002' || p.id === 'cj-1003' || p.id === 'cj-1004' || p.id === 'cj-1005');
+            const essentialShowlist = partnerUploaded.length > 0 ? [...partnerUploaded, ...fallbackProducts].slice(0, 4) : fallbackProducts.slice(0, 4);
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {essentialShowlist.map((p) => (
+                  <motion.div
+                    key={`ess-home-${p.id}`}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ ease: "easeOut", duration: 0.8 }}
+                  >
+                    <EssentialCard product={p} addToCart={addToCart} />
+                  </motion.div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </section>
 
