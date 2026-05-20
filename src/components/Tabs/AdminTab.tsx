@@ -7,7 +7,7 @@ import {
   BarChart3, Package, Bot, ShoppingCart, DollarSign, CreditCard, 
   Users, Tag, LayoutDashboard, Link2, Settings, UserCircle,
   Play, StopCircle, RefreshCw, Loader2, CheckCircle2, AlertCircle,
-  Edit2, Trash2, X
+  Edit2, Trash2, X, Headphones, MessageSquare, Send, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CJConnectionPanel from '../CJConnectionPanel';
@@ -81,6 +81,7 @@ export function AdminTab() {
     { id: 'commissions', label: 'Commissions', icon: DollarSign },
     { id: 'payouts', label: 'Payouts', icon: CreditCard },
     { id: 'customers', label: 'Customers', icon: Users },
+    { id: 'support', label: 'Customer Care', icon: Headphones },
     { id: 'offers', label: 'Offers/Discounts', icon: Tag },
     { id: 'editor', label: 'Home Page Editor', icon: LayoutDashboard },
     { id: 'cj-management', label: 'CJ Dropshipping', icon: Package },
@@ -150,6 +151,7 @@ export function AdminTab() {
             {activeSection === 'commissions' && <CommissionsSection />}
             {activeSection === 'payouts' && <PayoutsSection />}
             {activeSection === 'customers' && <CustomersSection />}
+            {activeSection === 'support' && <AdminSupportSection />}
             {activeSection === 'offers' && <OffersSection />}
             {activeSection === 'editor' && <EditorSection />}
             {activeSection === 'cj-management' && <CJManagementSection />}
@@ -241,21 +243,22 @@ function BotsSection() {
         
         let productsResponse: any = null;
         try {
-          productsResponse = await cjApi.getProducts(1, 15);
+          productsResponse = await cjApi.getProducts(1, 10);
         } catch (apiErr: any) {
           console.warn('CJ API fetch failed, proceeding with automated fallback catalog seeding:', apiErr.message);
         }
 
         if (productsResponse && productsResponse.data?.list && productsResponse.data.list.length > 0) {
+          const numToImport = Math.min(productsResponse.data.list.length, 10);
           addBotLog({
             id: Math.random().toString(),
             bot: 'Auto Import',
-            message: `Found ${productsResponse.data.list.length} potential products. Fetching deep-data for each...`,
+            message: `Found ${productsResponse.data.list.length} potential products. Beginning automated import of up to 10 products with default 15% commission markup...`,
             date: new Date().toLocaleTimeString(),
             type: 'info'
           });
 
-          for (let i = 0; i < productsResponse.data.list.length; i++) {
+          for (let i = 0; i < numToImport; i++) {
             const prod = productsResponse.data.list[i];
             
             // Staggered detailed fetch to get "everything"
@@ -271,15 +274,20 @@ function BotsSection() {
                    gallery.push(...detailImages);
                 }
 
+                const basePrice = parseFloat(target.sellPrice || 0);
+                const markupValue = parseFloat(margin) / 100;
+                const markup = parseFloat((basePrice * markupValue).toFixed(2));
+                const finalPrice = parseFloat((basePrice + markup).toFixed(2));
+
                 const newProduct: Product = {
                    id: `cj-${target.pid || Math.floor(Math.random() * 10000)}`,
                    title: target.productNameEn || target.productName || 'CJ Product',
                    description: target.description || target.productHtmlDescription || target.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
                    supplier: 'CJ Dropshipping',
-                   price: parseFloat(target.sellPrice || 0) + parseFloat(margin),
-                   basePrice: parseFloat(target.sellPrice || 0),
-                   commission: parseFloat(margin),
-                   finalPrice: parseFloat(target.sellPrice || 0) + parseFloat(margin),
+                   price: finalPrice,
+                   basePrice: basePrice,
+                   commission: markup,
+                   finalPrice: finalPrice,
                    stock: 999,
                    rating: 4.5 + Math.random() * 0.5,
                    category: target.categoryName || 'General',
@@ -296,21 +304,26 @@ function BotsSection() {
                 addBotLog({
                   id: Math.random().toString(),
                   bot: 'Auto Import',
-                  message: `Sync Complete: ${newProduct.title} (Deep data captured)`,
+                  message: `Sync Complete: ${newProduct.title} (15% markup: +$${markup.toFixed(2)})`,
                   date: new Date().toLocaleTimeString(),
                   type: 'success'
                 });
               } catch (innerErr) {
                 // Fallback to basic info if detail fetch fails
+                const basePrice = parseFloat(prod.sellPrice || 0);
+                const markupValue = parseFloat(margin) / 100;
+                const markup = parseFloat((basePrice * markupValue).toFixed(2));
+                const finalPrice = parseFloat((basePrice + markup).toFixed(2));
+
                 const basicProduct: Product = {
                    id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
                    title: prod.productNameEn || prod.productName || 'CJ Product',
                    description: prod.productNameEn || 'Automatically imported product from CJ Dropshipping.',
                    supplier: 'CJ Dropshipping',
-                   price: (prod.sellPrice || 0) + parseFloat(margin),
-                   basePrice: prod.sellPrice || 0,
-                   commission: parseFloat(margin),
-                   finalPrice: (prod.sellPrice || 0) + parseFloat(margin),
+                   price: finalPrice,
+                   basePrice: basePrice,
+                   commission: markup,
+                   finalPrice: finalPrice,
                    stock: 999,
                    rating: 4.5 + Math.random() * 0.5,
                    category: prod.categoryName || 'General',
@@ -322,6 +335,13 @@ function BotsSection() {
                    discountEligible: true
                 };
                 addProduct(basicProduct);
+                addBotLog({
+                  id: Math.random().toString(),
+                  bot: 'Auto Import',
+                  message: `Sync Fallback Match: ${basicProduct.title} (15% markup: +$${markup.toFixed(2)})`,
+                  date: new Date().toLocaleTimeString(),
+                  type: 'success'
+                });
               }
             }, i * 1500); // 1.5s delay between detail calls to avoid rate limits
           }
@@ -416,17 +436,19 @@ function BotsSection() {
 
           seedProducts.forEach((baseProd, index) => {
             setTimeout(() => {
-              const markupValue = parseFloat(margin);
+              const markupValue = parseFloat(margin) / 100;
+              const markup = parseFloat((baseProd.basePrice * markupValue).toFixed(2));
+              const finalPrice = parseFloat((baseProd.basePrice + markup).toFixed(2));
               const customProd: Product = {
                 id: baseProd.id,
                 title: baseProd.title,
                 description: baseProd.description,
                 supplier: 'CJ Dropshipping',
                 supplierLogo: '📦',
-                price: baseProd.basePrice + markupValue,
+                price: finalPrice,
                 basePrice: baseProd.basePrice,
-                commission: markupValue,
-                finalPrice: baseProd.basePrice + markupValue,
+                commission: markup,
+                finalPrice: finalPrice,
                 stock: Math.floor(Math.random() * 1100) + 100,
                 rating: parseFloat((4.5 + Math.random() * 0.5).toFixed(1)),
                 category: baseProd.category,
@@ -445,7 +467,7 @@ function BotsSection() {
               addBotLog({
                 id: Math.random().toString(),
                 bot: 'Auto Import',
-                message: `[Seeded Successful] Imported: "${customProd.title}" with a $${markupValue.toFixed(2)} markup!`,
+                message: `[Seeded Successful] Imported: "${customProd.title}" with a 15% markup (+$${markup.toFixed(2)})`,
                 date: new Date().toLocaleTimeString(),
                 type: 'success'
               });
@@ -496,15 +518,20 @@ function BotsSection() {
              gallery.push(...detailImages);
           }
 
+          const basePrice = parseFloat(targetProd.sellPrice || 0);
+          const markupValue = parseFloat(margin) / 100;
+          const markup = parseFloat((basePrice * markupValue).toFixed(2));
+          const finalPrice = parseFloat((basePrice + markup).toFixed(2));
+
           const newProduct: Product = {
             id: `cj-${targetProd.pid || Math.floor(Math.random() * 10000)}`,
             title: targetProd.productNameEn || targetProd.productName || 'Imported CJ Product',
             description: targetProd.description || targetProd.productKeyEn || targetProd.productHtmlDescription || 'Imported product from CJ Dropshipping.',
             supplier: 'CJ Dropshipping',
-            price: parseFloat(targetProd.sellPrice || 0) + parseFloat(margin),
-            basePrice: parseFloat(targetProd.sellPrice || 0),
-            commission: parseFloat(margin),
-            finalPrice: parseFloat(targetProd.sellPrice || 0) + parseFloat(margin),
+            price: finalPrice,
+            basePrice: basePrice,
+            commission: markup,
+            finalPrice: finalPrice,
             stock: 999,
             rating: 4.5 + Math.random() * 0.5,
             category: targetProd.categoryName || 'General',
@@ -520,7 +547,7 @@ function BotsSection() {
           addBotLog({
             id: Math.random().toString(),
             bot: 'Auto Import',
-            message: `Successfully imported: ${newProduct.title}`,
+            message: `Successfully imported: ${newProduct.title} (with a 15% markup)`,
             date: new Date().toLocaleTimeString(),
             type: 'success'
           });
@@ -590,7 +617,7 @@ function BotsSection() {
             />
             
             <div>
-               <label className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 block">Commission Markup (${margin})</label>
+               <label className="text-xs text-gray-400 uppercase tracking-wider font-bold mb-2 block">Commission Markup ({margin}%)</label>
                <input 
                  type="range" 
                  min="5" max="50" 
@@ -1093,52 +1120,362 @@ function ProductsSection() {
 }
 
 function OrdersSection() {
-  const { orders } = useStore();
+  const { orders, updateOrderStatus, addBotLog } = useStore();
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [cancelReason, setCancelReason] = useState('Out of Stock');
+  const [customMsg, setCustomMsg] = useState('');
+  const [customLocation, setCustomLocation] = useState('Regional Hub Center');
+  const [activeSimulation, setActiveSimulation] = useState<string | null>(null);
+
+  const handleUpdateStatus = (id: string, status: any) => {
+    const trackingNum = selectedOrder?.trackingNumber || `AURA-TRAK-${Math.floor(100000 + Math.random() * 900000)}`;
+    
+    let checkpointStatus = `Order status moved to ${status}`;
+    let location = 'Aura Warehouse';
+    
+    if (status === 'Shipped') {
+      checkpointStatus = 'Fulfillment complete. Dispatch package to carrier airline.';
+      location = 'Regional Aviation Sorting Port';
+    } else if (status === 'Out for Delivery') {
+      checkpointStatus = 'Assigned to local ground courier, out for delivery.';
+      location = 'Local Hub Terminal';
+    } else if (status === 'Delivered') {
+      checkpointStatus = 'Delivered and left secure at main entryway. Signed with client ID.';
+      location = 'Resident Porch Desk';
+    } else if (status === 'Cancelled') {
+      checkpointStatus = `Order Cancelled by Store Manager: "${cancelReason}"`;
+      location = 'Fulfillment Depot';
+    }
+
+    const currentUpdates = selectedOrder?.trackingUpdates || [
+      { date: new Date().toLocaleDateString(), status: 'Order processing in system', location: 'Aura Commerce' }
+    ];
+
+    const newUpdate = {
+      date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+      status: checkpointStatus,
+      location: location
+    };
+
+    const trackingUpdates = [newUpdate, ...currentUpdates];
+
+    updateOrderStatus(id, status, trackingNum, status === 'Cancelled' ? cancelReason : undefined, trackingUpdates);
+    
+    setSelectedOrder((prev: any) => {
+      if (!prev || prev.id !== id) return prev;
+      return {
+        ...prev,
+        status,
+        trackingNumber: trackingNum,
+        cancelReason: status === 'Cancelled' ? cancelReason : undefined,
+        trackingUpdates: trackingUpdates
+      };
+    });
+
+    addBotLog({
+      id: `admin-order-log-${Date.now()}`,
+      bot: 'Fulfillment Desk',
+      message: `Order ${id} is marked as [${status}] ${status === 'Cancelled' ? `(Reason: ${cancelReason})` : ''}`,
+      date: new Date().toLocaleTimeString(),
+      type: status === 'Cancelled' ? 'warning' : 'success'
+    });
+  };
+
+  const handleCustomJourneyUpdate = (id: string) => {
+    if (!customMsg.trim()) return;
+    const currentUpdates = selectedOrder?.trackingUpdates || [];
+    const newUpdate = {
+      date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+      status: customMsg.trim(),
+      location: customLocation.trim() || 'Transit Node'
+    };
+    const updated = [newUpdate, ...currentUpdates];
+    
+    updateOrderStatus(id, selectedOrder.status, selectedOrder.trackingNumber, selectedOrder.cancelReason, updated);
+    
+    setSelectedOrder((prev: any) => ({
+      ...prev,
+      trackingUpdates: updated
+    }));
+
+    setCustomMsg('');
+    addBotLog({
+      id: `admin-order-custom-${Date.now()}`,
+      bot: 'Logistics Core',
+      message: `Injected custom movement event for ${id}: "${newUpdate.status}" [${newUpdate.location}]`,
+      date: new Date().toLocaleTimeString(),
+      type: 'info'
+    });
+  };
+
+  const triggerRealtimeSimulation = (id: string) => {
+    if (activeSimulation === id) return;
+    setActiveSimulation(id);
+    
+    addBotLog({
+      id: `sim-started-${Date.now()}`,
+      bot: 'Logistics Simulation',
+      message: `Activating Active Order Simulation sequence for ${id}... Sequence: Packaging -> Shipped -> Flight Hub -> Local Courier -> Delivered.`,
+      date: new Date().toLocaleTimeString(),
+      type: 'info'
+    });
+
+    const addStep = (statusLabel: string, desc: string, loc: string, delayMs: number) => {
+      setTimeout(() => {
+        const checkStore = useStore.getState();
+        const freshOrder = checkStore.orders.find(o => o.id === id);
+        
+        const stepUpdate = {
+          date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', active tracking',
+          status: desc,
+          location: loc
+        };
+        
+        const existingUpdates = freshOrder?.trackingUpdates || [];
+        const stateUpdates = [stepUpdate, ...existingUpdates];
+        
+        let targetStatus: any = 'Processing';
+        if (statusLabel === 'Shipped') targetStatus = 'Shipped';
+        if (statusLabel === 'Out for Delivery') targetStatus = 'Out for Delivery';
+        if (statusLabel === 'Delivered') targetStatus = 'Delivered';
+
+        updateOrderStatus(id, targetStatus, freshOrder?.trackingNumber || 'SIM-TRACK-991', undefined, stateUpdates);
+        
+        setSelectedOrder((prev: any) => {
+          if (!prev || prev.id !== id) return prev;
+          return {
+            ...prev,
+            status: targetStatus,
+            trackingUpdates: stateUpdates
+          };
+        });
+
+        addBotLog({
+          id: `sim-step-${Date.now()}`,
+          bot: 'Logistics Simulation',
+          message: `Order ${id} update status tracker: "${statusLabel}" (${desc}). Checkpoint: ${loc}`,
+          date: new Date().toLocaleTimeString(),
+          type: 'success'
+        });
+
+        if (statusLabel === 'Delivered') {
+          setActiveSimulation(null);
+        }
+      }, delayMs);
+    };
+
+    addStep('Processing', 'Item picked from automated shelving and wrapped in heavy-duty package.', 'Aura Warehouse B1', 1500);
+    addStep('Shipped', 'Departure Scan: Handover to DHL Air Courier flight DHL-920 with tracking update.', 'Hong Kong Express Air Base', 9000);
+    addStep('Out for Delivery', 'With vehicle: Dispatched from sorting line to delivery van for residential route.', 'Los Angeles Distribution HQ', 18000);
+    addStep('Delivered', 'Delivered: Secured inside parcel smart locker. Photos uploaded.', 'Front Portal Cabinet', 27000);
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-display font-bold text-white mb-2">Order Management</h2>
-        <p className="text-gray-400">Track and fulfill recent customer orders.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-display font-bold text-white mb-2">Order Management</h2>
+          <p className="text-gray-400">Track, simulate logistics movement, and execute manager cancellations here.</p>
+        </div>
       </div>
-      <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead>
-              <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-gray-500 bg-[#0A0A0A]">
-                <th className="p-4 font-medium">Order ID</th>
-                <th className="p-4 font-medium">Date</th>
-                <th className="p-4 font-medium">Customer</th>
-                <th className="p-4 font-medium">Payment</th>
-                <th className="p-4 font-medium">Supplier</th>
-                <th className="p-4 font-medium">Total</th>
-                <th className="p-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order, i) => (
-                <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="p-4 text-white font-mono text-sm">{order.id}</td>
-                  <td className="p-4 text-gray-400 text-sm whitespace-nowrap">{order.date}</td>
-                  <td className="p-4 text-gray-300 text-sm">{order.customerName}</td>
-                  <td className="p-4 text-gray-400 text-sm">{order.paymentMethod || 'Credit Card'}</td>
-                  <td className="p-4 text-gray-400 text-sm">{order.supplier}</td>
-                  <td className="p-4 text-white font-bold">${order.total.toFixed(2)}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                      order.status === 'Completed' || order.status === 'Delivered' ? 'bg-[#50C878]/10 text-[#50C878] border border-[#50C878]/20' : 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </td>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Orders Table */}
+        <div className="xl:col-span-2 bg-[#141414] border border-white/5 rounded-2xl overflow-hidden self-start">
+          <div className="overflow-x-auto font-sans">
+            <table className="w-full text-left border-collapse min-w-[600px]">
+              <thead>
+                <tr className="border-b border-white/10 text-xs uppercase tracking-wider text-gray-500 bg-[#0A0A0A]">
+                  <th className="p-4 font-medium">Order ID</th>
+                  <th className="p-4 font-medium">Customer</th>
+                  <th className="p-4 font-medium">Date</th>
+                  <th className="p-4 font-medium">Channel</th>
+                  <th className="p-4 font-medium">Invoice Value</th>
+                  <th className="p-4 font-medium">Status Check</th>
                 </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                   <td colSpan={6} className="p-8 text-center text-gray-500">No orders placed yet.</td>
-                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order, i) => (
+                  <tr 
+                    key={order.id} 
+                    onClick={() => setSelectedOrder(order)}
+                    className={`border-b border-white/5 cursor-pointer hover:bg-white/5 transition-all ${selectedOrder?.id === order.id ? 'bg-white/5 border-l-4 border-[#D4AF37]' : ''}`}
+                  >
+                    <td className="p-4 text-white font-mono text-xs">{order.id}</td>
+                    <td className="p-4">
+                      <p className="text-white text-sm font-bold">{order.customerName}</p>
+                      <p className="text-xs text-gray-500">{order.email}</p>
+                    </td>
+                    <td className="p-4 text-gray-400 text-xs whitespace-nowrap">{order.date}</td>
+                    <td className="p-4 text-gray-400 text-xs font-mono">{order.supplier}</td>
+                    <td className="p-4 text-[#D4AF37] font-bold font-mono text-sm">${order.total.toFixed(2)}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        order.status === 'Completed' || order.status === 'Delivered' ? 'bg-[#50C878]/10 text-[#50C878] border border-[#50C878]/20' : 
+                        order.status === 'Cancelled' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                        'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20'
+                      }`}>
+                        {order.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {orders.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-12 text-center text-gray-500 text-sm">
+                      No customer orders have been placed in this session yet. Use Shop tab to place simulated orders.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Fulfill, Cancel, & Tracking Panel Area */}
+        <div className="bg-[#141414] border border-white/5 rounded-2xl p-6 self-start space-y-6">
+          {selectedOrder ? (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                <div>
+                  <h3 className="text-base font-bold text-white font-mono">{selectedOrder.id}</h3>
+                  <p className="text-xs text-gray-400 mt-1">To: {selectedOrder.customerName}</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedOrder(null)}
+                  className="w-7 h-7 bg-white/5 border border-white/5 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status Action Toggles */}
+              {selectedOrder.status !== 'Cancelled' ? (
+                <div className="space-y-3">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest block font-bold">Fulfill & Track Control</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button 
+                      onClick={() => handleUpdateStatus(selectedOrder.id, 'Shipped')}
+                      className={`py-2 text-[10px] font-bold uppercase border rounded-lg transition-colors cursor-pointer ${selectedOrder.status === 'Shipped' ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-[#0A0A0A] text-[#D4AF37] border-white/10 hover:border-[#D4AF37]/50'}`}
+                    >
+                      Ship Out
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatus(selectedOrder.id, 'Out for Delivery')}
+                      className={`py-2 text-[10px] font-bold uppercase border rounded-lg transition-colors cursor-pointer ${selectedOrder.status === 'Out for Delivery' ? 'bg-[#D4AF37] text-black border-[#D4AF37]' : 'bg-[#0A0A0A] text-[#D4AF37] border-white/10 hover:border-[#D4AF37]/50'}`}
+                    >
+                      Out for Del
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateStatus(selectedOrder.id, 'Delivered')}
+                      className={`py-2 text-[10px] font-bold uppercase border rounded-lg transition-colors cursor-pointer ${selectedOrder.status === 'Delivered' ? 'bg-[#50C878] text-black border-[#50C878]' : 'bg-[#0A0A0A] text-[#50C878] border-white/10 hover:border-[#50C878]/50'}`}
+                    >
+                      Deliver
+                    </button>
+                  </div>
+
+                  {/* Active Simulated Real-time journey triggers */}
+                  <button
+                    disabled={activeSimulation === selectedOrder.id}
+                    onClick={() => triggerRealtimeSimulation(selectedOrder.id)}
+                    className="w-full bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 text-[#D4AF37] py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${activeSimulation === selectedOrder.id ? 'animate-spin' : ''}`} />
+                    {activeSimulation === selectedOrder.id ? 'Simulation Sequence Running...' : 'Simulate Logistics Journey'}
+                  </button>
+                </div>
+              ) : (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-1">
+                  <p className="text-red-500 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> Order Cancelled
+                  </p>
+                  <p className="text-xs text-gray-300">
+                    <span className="text-gray-500">Reason:</span> {selectedOrder.cancelReason || 'Out of Stock'}
+                  </p>
+                </div>
               )}
-            </tbody>
-          </table>
+
+              {/* Order Cancellation Controller */}
+              {selectedOrder.status !== 'Cancelled' && (
+                <div className="bg-[#0A0A0A] p-4 rounded-xl border border-white/5 space-y-3">
+                  <span className="text-[10px] text-red-400 uppercase tracking-widest block font-bold">Cancel Order Panel</span>
+                  <div className="space-y-2">
+                    <label className="text-[9px] text-gray-500 uppercase font-black tracking-wider block">Manager Cancel Reason</label>
+                    <select 
+                      value={cancelReason} 
+                      onChange={e => setCancelReason(e.target.value)}
+                      className="w-full bg-[#141414] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-red-500"
+                    >
+                      <option value="Out of Stock">Out of Stock (Cancel Order)</option>
+                      <option value="Customer Requested Cancellation">Customer Request</option>
+                      <option value="Fraudulent Payment Suspected">Risk Check Failed</option>
+                      <option value="Invalid Customer Shipping Address">Invalid Address</option>
+                    </select>
+                  </div>
+                  <button 
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'Cancelled')}
+                    className="w-full py-2.5 bg-red-900/30 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-red-900/50 hover:text-white transition-all cursor-pointer"
+                  >
+                    Confirm Cancellation
+                  </button>
+                </div>
+              )}
+
+              {/* Custom checkpoint insertion */}
+              {selectedOrder.status !== 'Cancelled' && (
+                <div className="bg-[#0A0A0A] p-4 rounded-xl border border-white/5 space-y-3">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-widest block font-bold">Inject Custom Milestone</span>
+                  <div className="space-y-2">
+                    <input 
+                      type="text"
+                      placeholder="e.g. Scanned into sorting facility"
+                      value={customMsg}
+                      onChange={e => setCustomMsg(e.target.value)}
+                      className="w-full bg-[#141414] border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-[#D4AF37]"
+                    />
+                    <input 
+                      type="text"
+                      placeholder="Location (e.g. London Terminal)"
+                      value={customLocation}
+                      onChange={e => setCustomLocation(e.target.value)}
+                      className="w-full bg-[#141414] border border-white/10 rounded-lg p-2 text-xs text-[#D4AF37] outline-none focus:border-[#D4AF37] font-semibold"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => handleCustomJourneyUpdate(selectedOrder.id)}
+                    className="w-full py-2 bg-white/5 border border-white/10 text-white font-bold text-xs uppercase rounded-lg hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer"
+                  >
+                    Inject Milestone
+                  </button>
+                </div>
+              )}
+
+              {/* Visual mini-timeline check */}
+              <div className="space-y-3">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest block font-bold">Logistic Updates Log ({selectedOrder.trackingUpdates?.length || 0})</span>
+                <div className="max-h-48 overflow-y-auto space-y-3 pr-1">
+                  {(selectedOrder.trackingUpdates || []).map((update: any, idx: number) => (
+                    <div key={idx} className="bg-[#0A0A0A] p-3 rounded-xl border border-white/5 text-[11px] space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white font-bold">{update.status}</span>
+                        <span className="text-[9px] text-[#D4AF37] font-bold font-mono">{update.location}</span>
+                      </div>
+                      <p className="text-[9px] text-gray-500 font-mono">{update.date}</p>
+                    </div>
+                  ))}
+                  {(!selectedOrder.trackingUpdates || selectedOrder.trackingUpdates.length === 0) && (
+                    <p className="text-xs text-gray-500 italic text-center py-4 bg-[#0A0A0A] rounded-xl border border-dashed border-white/5">No tracking updates in log. Advance order status above to automatically generate logs.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-[#0A0A0A]/40 rounded-xl border border-dashed border-white/5">
+              <ShoppingCart className="w-8 h-8 text-gray-600 mb-2" />
+              <p className="text-sm font-semibold text-gray-400">Order Action Center</p>
+              <p className="text-xs text-gray-500 mt-1">Select any row from the order database to view items, trigger tracking updates, or execute manager cancellations.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1828,6 +2165,202 @@ function CJManagementSection() {
             )}
           </div>
           <button onClick={() => setLog([])} className="mt-4 text-xs text-gray-500 hover:text-white uppercase tracking-widest text-right">Clear Terminal</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminSupportSection() {
+  const { supportMessages, addSupportMessage } = useStore();
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  // Group messages by customer email address to represent threads
+  const threadsMap: { [key: string]: { name: string; email: string; orderId?: string; messages: any[] } } = {};
+  
+  supportMessages.forEach((msg: any) => {
+    const email = msg.customerEmail || 'unknown@example.com';
+    if (!threadsMap[email]) {
+      threadsMap[email] = {
+        name: msg.customerName || 'Anonymous Guest',
+        email: email,
+        orderId: msg.orderId,
+        messages: []
+      };
+    }
+    threadsMap[email].messages.push(msg);
+  });
+
+  const threads = Object.values(threadsMap);
+  const activeThread = selectedEmail ? threadsMap[selectedEmail] : null;
+
+  const handleSendReply = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim() || !selectedEmail) return;
+
+    const lastCustomerMsg = activeThread?.messages.filter((m: any) => m.sender === 'customer').pop();
+
+    const newReply = {
+      id: `admin-reply-${Date.now()}`,
+      sender: 'admin' as const,
+      text: replyText.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      customerName: activeThread?.name || 'Customer',
+      customerEmail: selectedEmail,
+      orderId: lastCustomerMsg?.orderId || activeThread?.orderId
+    };
+
+    addSupportMessage(newReply);
+    setReplyText('');
+
+    useStore.getState().addBotLog({
+      id: `support-log-${Date.now()}`,
+      bot: 'Customer Desk',
+      message: `Admin replied to ${newReply.customerName}: "${newReply.text.substring(0, 30)}..."`,
+      date: new Date().toLocaleTimeString(),
+      type: 'success'
+    });
+  };
+
+  const insertQuickReply = (text: string) => {
+    setReplyText(text);
+  };
+
+  return (
+    <div className="space-y-8 font-sans">
+      <div>
+        <h2 className="text-3xl font-display font-bold text-white mb-2">Customer Care Center</h2>
+        <p className="text-gray-400">Directly connect with store visitors, solve support tickets, and answer order inquiries.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[600px] bg-[#141414] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+        {/* Threads Selector */}
+        <div className="lg:col-span-4 border-r border-white/5 flex flex-col h-full bg-[#0A0A0A]/50">
+          <div className="p-4 border-b border-white/5">
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Active Help Tickets ({threads.length})</span>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+            {threads.map((thread: any) => {
+              const lastMsg = thread.messages[thread.messages.length - 1];
+              const isSelected = selectedEmail === thread.email;
+              return (
+                <button
+                  key={thread.email}
+                  onClick={() => setSelectedEmail(thread.email)}
+                  className={`w-full text-left p-4 transition-all flex flex-col gap-1 focus:outline-none ${isSelected ? 'bg-white/5 border-l-4 border-[#D4AF37]' : 'hover:bg-white/5'}`}
+                >
+                  <div className="flex justify-between items-center w-full">
+                    <span className="font-bold text-sm text-white">{thread.name}</span>
+                    <span className="text-[9px] text-gray-500 font-mono">{lastMsg?.timestamp}</span>
+                  </div>
+                  <span className="text-xs text-gray-400">{thread.email}</span>
+                  <p className="text-xs text-gray-500 italic mt-1.5 truncate max-w-full font-sans">"{lastMsg?.text}"</p>
+                  {thread.orderId && (
+                    <span className="text-[10px] text-[#D4AF37] border border-[#D4AF37]/20 px-2 py-0.5 rounded font-mono bg-[#D4AF37]/5 max-w-max mt-2">
+                      Ref: {thread.orderId}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {threads.length === 0 && (
+              <div className="p-12 text-center text-gray-500 text-xs font-sans">
+                No active support messages recorded in this session.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Messaging Box */}
+        <div className="lg:col-span-8 flex flex-col h-full bg-[#0F0F0F]/30">
+          {activeThread ? (
+            <>
+              {/* Header */}
+              <div className="p-5 border-b border-white/5 bg-[#000]/10 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-white text-base">{activeThread.name}</h3>
+                  <p className="text-xs text-gray-500 mt-1">{activeThread.email}</p>
+                </div>
+                {activeThread.orderId && (
+                  <div className="bg-[#D4AF37]/5 border border-[#D4AF37]/20 px-3 py-1.5 rounded-lg text-right font-mono text-xs text-[#D4AF37]">
+                    Order Referred: {activeThread.orderId}
+                  </div>
+                )}
+              </div>
+
+              {/* Message scroll list */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {activeThread.messages.map((msg: any) => {
+                  const isAdmin = msg.sender === 'admin';
+                  return (
+                    <div key={msg.id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] text-gray-400 font-bold">{isAdmin ? 'Store Support' : msg.customerName}</span>
+                        <span className="text-[9px] text-gray-500 font-mono">{msg.timestamp}</span>
+                      </div>
+                      <div 
+                        className={`p-3.5 rounded-xl max-w-[80%] text-xs font-semibold leading-relaxed shadow-sm ${
+                          isAdmin 
+                            ? 'text-black rounded-tr-none font-sans' 
+                            : 'bg-white/5 border border-white/5 text-gray-100 rounded-tl-none font-sans'
+                        }`}
+                        style={isAdmin ? { backgroundColor: '#D4AF37' } : {}}
+                      >
+                        {msg.text}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Quick Template Picker */}
+              <div className="p-4 border-t border-white/5 bg-black/30 flex flex-wrap gap-2 items-center">
+                <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider select-none">Quick Replies:</span>
+                <button 
+                  onClick={() => insertQuickReply(`Hello ${activeThread.name}! I am investigating this shipment hold-up with our logistics agent right now. Will resolve ASAP.`)}
+                  className="bg-white/5 hover:bg-white/10 text-[10px] text-gray-300 font-bold px-2 py-1 rounded border border-white/5 transition-all text-left"
+                >
+                  🚚 Carrier Hold-up
+                </button>
+                <button 
+                  onClick={() => insertQuickReply(`We apologize! This dropship inventory is temporarily out of stock. We can offer a 100% store credit or swap for a similar product.`)}
+                  className="bg-white/5 hover:bg-white/10 text-[10px] text-gray-300 font-bold px-2 py-1 rounded border border-white/5 transition-all text-left"
+                >
+                  📦 Inventory Issue
+                </button>
+                <button 
+                  onClick={() => insertQuickReply(`Thank you for confirming your correct physical address. I have successfully updated our drop-shipping log details.`)}
+                  className="bg-white/5 hover:bg-white/10 text-[10px] text-gray-300 font-bold px-2 py-1 rounded border border-white/5 transition-all text-left"
+                >
+                  🏠 Confirm Address
+                </button>
+              </div>
+
+              {/* In-box Reply Bar */}
+              <form onSubmit={handleSendReply} className="p-4 border-t border-white/5 bg-black/20 flex gap-3">
+                <input
+                  type="text" required
+                  value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  placeholder={`Type a direct message to ${activeThread.name}...`}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#D4AF37] transition-all"
+                />
+                <button
+                  type="submit"
+                  className="px-6 bg-[#D4AF37] hover:brightness-110 active:scale-95 text-black font-black uppercase text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none"
+                >
+                  Send <Send className="w-3.5 h-3.5 text-black" />
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/10 font-sans">
+              <MessageSquare className="w-12 h-12 text-gray-600 mb-3" />
+              <h4 className="text-base font-bold text-white">Select a Chat Box Thread</h4>
+              <p className="text-gray-500 text-xs mt-1 max-w-xs">Review real-time incoming visitor inquiries and troubleshoot customer satisfaction queries instantly.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

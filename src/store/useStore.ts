@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Product, CartItem, Order, Stats } from '../types';
+import { Product, CartItem, Order, Stats, SupportMessage } from '../types';
 import { initialProducts } from '../data/products';
 
 export interface User {
@@ -69,7 +69,11 @@ interface AppState {
 
   orders: Order[];
   addOrder: (o: Order) => void;
-  updateOrderStatus: (id: string, status: Order['status'], tracking?: string) => void;
+  updateOrderStatus: (id: string, status: Order['status'], tracking?: string, cancelReason?: string, trackingUpdates?: Order['trackingUpdates']) => void;
+
+  supportMessages: SupportMessage[];
+  addSupportMessage: (msg: SupportMessage) => void;
+  clearSupportMessages: () => void;
 
   stats: Stats;
   addStats: (revenue: number, commission: number) => void;
@@ -131,9 +135,38 @@ export const useStore = create<AppState>()(
 
       orders: [],
       addOrder: (o) => set((state) => ({ orders: [o, ...state.orders] })),
-      updateOrderStatus: (id, status, tracking) => set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, status, trackingNumber: tracking || o.trackingNumber } : o)
+      updateOrderStatus: (id, status, tracking, cancelReason, trackingUpdates) => set((state) => ({
+        orders: state.orders.map(o => o.id === id ? { 
+          ...o, 
+          status, 
+          trackingNumber: tracking || o.trackingNumber,
+          cancelReason: cancelReason || o.cancelReason,
+          trackingUpdates: trackingUpdates || o.trackingUpdates 
+        } : o)
       })),
+
+      supportMessages: [
+        {
+          id: 'mock-1',
+          sender: 'customer',
+          text: 'Hi there! I ordered the LED Sunset Atmosphere Projector, but I need to change my shipping address to 456 Luxury Blvd. Can you assist?',
+          timestamp: new Date(Date.now() - 10800000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          customerName: 'Sarah Jenkins',
+          customerEmail: 'sarah@example.com',
+          orderId: 'cj-1001'
+        },
+        {
+          id: 'mock-2',
+          sender: 'admin',
+          text: 'Hello Sarah! Yes, I can help you with that. I have updated the shipping details for order cj-1001 in our CJ Dropshipping panel.',
+          timestamp: new Date(Date.now() - 9000000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          customerName: 'Sarah Jenkins',
+          customerEmail: 'sarah@example.com',
+          orderId: 'cj-1001'
+        }
+      ],
+      addSupportMessage: (msg) => set((state) => ({ supportMessages: [...state.supportMessages, msg] })),
+      clearSupportMessages: () => set({ supportMessages: [] }),
 
       stats: { revenue: 0, orders: 0, commissions: 0 },
       addStats: (rev, comm) => set((state) => ({

@@ -300,16 +300,17 @@ function OrderTracker({ orderId, onBack }: { orderId: string, onBack: () => void
   const currentStatus = liveData?.status || localOrder?.status || 'Processing';
   const trackingNum = liveData?.trackingNumber || localOrder?.trackingNumber || 'AURA-TRAK-983021';
   const estDelivery = liveData?.estimatedDelivery || localOrder?.estimatedDelivery || '12-15 Business Days';
+  const isCancelled = currentStatus === 'Cancelled';
   
   const isCompleted = currentStatus === 'Completed' || currentStatus === 'Delivered';
-  const isShipped = isCompleted || currentStatus === 'Shipped' || currentStatus === 'Out for Delivery';
-  const isOut = isCompleted || currentStatus === 'Out for Delivery';
+  const isShipped = !isCancelled && (isCompleted || currentStatus === 'Shipped' || currentStatus === 'Out for Delivery');
+  const isOut = !isCancelled && (isCompleted || currentStatus === 'Out for Delivery');
 
   const steps = [
     { label: 'Processing', active: true, done: isShipped, icon: <Package className="w-5 h-5" /> },
-    { label: 'Shipped', active: isShipped, done: isOut, icon: <Truck className="w-5 h-5" /> },
-    { label: 'Out for Delivery', active: isOut, done: isCompleted, icon: <MapPin className="w-5 h-5" /> },
-    { label: 'Delivered', active: isCompleted, done: isCompleted, icon: <CheckCircle2 className="w-5 h-5" /> }
+    { label: 'Shipped', active: isShipped && !isCancelled, done: isOut, icon: <Truck className="w-5 h-5" /> },
+    { label: 'Out for Delivery', active: isOut && !isCancelled, done: isCompleted, icon: <MapPin className="w-5 h-5" /> },
+    { label: isCancelled ? 'Cancelled' : 'Delivered', active: isCompleted || isCancelled, done: isCompleted, icon: isCancelled ? <AlertCircle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" /> }
   ];
 
   // Default updates if none exist
@@ -369,25 +370,38 @@ function OrderTracker({ orderId, onBack }: { orderId: string, onBack: () => void
          </div>
       </div>
 
+      {isCancelled && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 mb-8 flex items-start gap-4">
+          <AlertCircle className="w-6 h-6 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-red-500 font-bold text-sm uppercase tracking-wider">Order Cancelled by Aura Store</h3>
+            <p className="text-gray-300 text-xs mt-1 leading-relaxed">
+              This order has been cancelled by the administrator due to: <strong className="text-white">"{localOrder?.cancelReason || 'Out of Stock'}"</strong>. 
+              Any pre-authorization hold on your payment card has been voided. If you have any questions or would like to request alternative items, please direct message us in the live help chat box in the bottom right corner of and we will assist you immediately!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="relative mb-16 mt-8">
         <div className="absolute top-1/2 left-0 w-full h-1 bg-[#0A0A0A] -translate-y-1/2 rounded-full overflow-hidden">
           <motion.div 
-             className="h-full bg-gradient-to-r from-transparent to-[#D4AF37]"
+             className={`h-full ${isCancelled ? 'bg-red-500' : 'bg-gradient-to-r from-transparent to-[#D4AF37]'}`}
              initial={{ width: '0%' }}
-             animate={{ width: isCompleted ? '100%' : isOut ? '75%' : isShipped ? '50%' : '12.5%' }}
+             animate={{ width: isCancelled ? '100%' : isCompleted ? '100%' : isOut ? '75%' : isShipped ? '50%' : '12.5%' }}
              transition={{ duration: 1.5, ease: 'easeOut' }}
-             style={{ backgroundColor: settings.themeColor }}
+             style={isCancelled ? {} : { backgroundColor: settings.themeColor }}
           />
         </div>
         <div className="relative flex justify-between z-10">
           {steps.map((step, i) => (
              <div key={i} className="flex flex-col items-center gap-2 bg-[#141414] px-1">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-700 ${step.active ? `bg-[#D4AF37] border-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]` : 'bg-[#0A0A0A] border-gray-700 text-gray-500'}`}
-                     style={step.active ? { backgroundColor: settings.themeColor, borderColor: settings.themeColor, boxShadow: `0 0 15px ${settings.themeColor}60` } : {}}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-700 ${step.active ? (isCancelled ? 'bg-red-500 border-red-500 text-white' : `bg-[#D4AF37] border-[#D4AF37] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]`) : 'bg-[#0A0A0A] border-gray-700 text-gray-500'}`}
+                     style={step.active ? (isCancelled ? {} : { backgroundColor: settings.themeColor, borderColor: settings.themeColor, boxShadow: `0 0 15px ${settings.themeColor}60` }) : {}}>
                    {step.icon}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-tighter sm:tracking-wider ${step.active ? 'text-white' : 'text-gray-500'}`}>{step.label}</span>
+                <span className={`text-[10px] font-bold uppercase tracking-tighter sm:tracking-wider ${step.active ? (isCancelled ? 'text-red-500' : 'text-white') : 'text-gray-500'}`}>{step.label}</span>
              </div>
           ))}
         </div>

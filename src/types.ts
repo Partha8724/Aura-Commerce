@@ -54,6 +54,17 @@ export interface Order {
   supplier: string;
   paymentMethod?: string;
   estimatedDelivery?: string;
+  cancelReason?: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  sender: 'customer' | 'admin';
+  text: string;
+  timestamp: string;
+  customerName?: string;
+  customerEmail?: string;
+  orderId?: string;
 }
 
 export interface Stats {
