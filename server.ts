@@ -136,6 +136,11 @@ async function startServer() {
       console.log(`[Server]: Connection handshake initiated for ${email || 'default merchant'}`);
       const result = await validateCJConnection(apiKey, email);
       
+      if (result.success && result.details) {
+        (result as any).accessToken = result.details.accessToken;
+        (result as any).refreshToken = result.details.refreshToken;
+      }
+
       // Return 200 with JSON payload as requested
       res.status(200).json(result);
     } catch (error: any) {

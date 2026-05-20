@@ -99,7 +99,7 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const { accessToken } = authData.data;
+    const { accessToken, refreshToken } = authData.data;
 
     // STEP 2: Verify system health by performing a lightweight query
     const productListUrl = `${baseUrl}/product/list?pageNum=1&pageSize=1`;
@@ -156,6 +156,8 @@ export default async function handler(req: any, res: any) {
         status: 'online',
         message: 'Aura-CJ Secure Bridge established successfully.',
         timestamp,
+        accessToken,
+        refreshToken,
         details: { handshake: true, health: 'healthy' }
       });
     } else {

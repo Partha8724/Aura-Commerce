@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
         status: 'online',
         message: 'Aura Secure Bridge established. Master Supplier is online.',
         timestamp,
+        accessToken: cjApi.accessToken,
+        refreshToken: cjApi.refreshToken,
         details: { version: '2.0', protocol: 'direct' }
       });
     } else {

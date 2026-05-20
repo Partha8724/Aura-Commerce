@@ -12,6 +12,8 @@ export interface ConnectionResult {
     handshake?: boolean;
     health?: string;
     code?: number;
+    accessToken?: string;
+    refreshToken?: string;
   };
 }
 
@@ -66,7 +68,12 @@ export async function validateCJConnection(apiKey: string, email?: string): Prom
         status: 'online',
         message: 'Aura-CJ Secure Bridge established successfully.',
         timestamp,
-        details: { handshake: true, health: 'healthy' }
+        details: { 
+          handshake: true, 
+          health: 'healthy',
+          accessToken: cjApi.accessToken || undefined,
+          refreshToken: cjApi.refreshToken || undefined
+        }
       };
     } else {
       return {

@@ -7,6 +7,7 @@ import {
   CJShippingResponse,
   CJHealthCheck 
 } from './cj-types';
+import { useStore } from '../store/useStore';
 
 /**
  * AURA COMMERCE - Robust CJ Dropshipping API Client
@@ -99,6 +100,15 @@ export class CJApiClient {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('[CJ API] HTTP 401 Unauthorized detected. Clearing cached token.');
+            this.accessToken = null;
+            this.tokenExpiry = 0;
+            if (attempt < this.maxRetries) {
+              headers.delete('CJ-Access-Token');
+              continue;
+            }
+          }
           if (response.status === 404) {
             throw new Error(`Routing Error: Resource not found at ${url}. Verify CJ_BASE_URL.`);
           }
@@ -147,7 +157,7 @@ export class CJApiClient {
   public async getValidToken(): Promise<string> {
     const BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer
     
-    if (this.accessToken && Date.now() < this.tokenExpiry - BUFFER_MS) {
+    if (this.accessToken && (this.tokenExpiry === 0 || Date.now() < this.tokenExpiry - BUFFER_MS)) {
       return this.accessToken;
     }
 
@@ -173,6 +183,38 @@ export class CJApiClient {
           }
         }
         
+        // Fallback for browser client: perform handshake via /api/cj/connect
+        if (typeof window !== 'undefined' && this.apiKey) {
+          console.log('[CJ API] Browser detected. Requesting token refresh via /api/cj/connect...');
+          try {
+            const res = await fetch('/api/cj/connect', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey: this.apiKey })
+            });
+            const result = await res.json();
+            if (result.success && result.accessToken) {
+              this.accessToken = result.accessToken;
+              this.refreshToken = result.refreshToken || null;
+              this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000;
+              
+              try {
+                const { updateSettings } = useStore.getState();
+                updateSettings({
+                  cjAccessToken: result.accessToken,
+                  cjConnected: true
+                });
+              } catch (storeErr) {
+                console.warn('[CJ API] Store sync failed: ', storeErr);
+              }
+              
+              return this.accessToken!;
+            }
+          } catch (err: any) {
+            console.error('[CJ API] Browser credentials refresh link errored: ', err.message);
+          }
+        }
+
         // Default to full handshake if refresh fails or no token exists
         const email = typeof process !== 'undefined' ? process.env.CJ_EMAIL : null;
         const key = this.apiKey || (typeof process !== 'undefined' ? process.env.CJ_API_KEY : null);
@@ -199,6 +241,18 @@ export class CJApiClient {
       this.tokenExpiry = new Date(data.accessTokenExpiryDate).getTime();
     } catch (e) {
       this.tokenExpiry = Date.now() + 86400000; // 24h fallback
+    }
+    
+    try {
+      if (typeof window !== 'undefined') {
+        const { updateSettings } = useStore.getState();
+        updateSettings({
+          cjAccessToken: data.accessToken,
+          cjConnected: true
+        });
+      }
+    } catch (storeErr) {
+      console.warn('[CJ API] Store sync failed in updateCache: ', storeErr);
     }
   }
 

@@ -17,6 +17,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useStore } from '../store/useStore';
 import { cjApi } from '../lib/cj-api';
+import { supabase } from '../lib/supabase';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -86,8 +87,41 @@ export default function CJConnectionPanel() {
       }
 
       if (result.success) {
+        const tokenVal = result.accessToken || result.details?.accessToken || '';
+        const rfTokenVal = result.refreshToken || result.details?.refreshToken || '';
+        
         cjApi.apiKey = apiKey;
-        updateSettings({ cjApiKey: apiKey, cjConnected: true });
+        cjApi.accessToken = tokenVal;
+        cjApi.refreshToken = rfTokenVal;
+
+        updateSettings({ 
+          cjApiKey: apiKey, 
+          cjConnected: true,
+          cjAccessToken: tokenVal
+        });
+
+        // Try persisting back to user's Supabase credentials, failing silently if table structure isn't populated
+        try {
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+              supabase
+                .from('cj_credentials')
+                .upsert({
+                  user_id: user.id,
+                  cj_connected: true,
+                  cj_access_token: tokenVal,
+                  cj_api_key: apiKey
+                }, { onConflict: 'user_id' })
+                .then(({ error }) => {
+                  if (error) console.warn('Supabase DB Sync skipped/failed:', error.message);
+                  else addLog('☁️ Sync Cloud Backup: Credentials persisted to Database', 'info');
+                });
+            }
+          });
+        } catch (dbErr: any) {
+          console.warn('Database connection unavailable for CJ persistence: ', dbErr.message);
+        }
+
         setStatus('online');
         addLog(`✅ ${result.message}`, 'success');
         addLog('📡 Protocol: Direct Secure Bridge Active', 'info');
