@@ -66,41 +66,65 @@ export default function App() {
           const mappedOrders = dbOrders.map((o: any) => {
             let parsedItems = [];
             try {
-              parsedItems = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+              const itemRaw = o.products || o.items;
+              parsedItems = typeof itemRaw === 'string' ? JSON.parse(itemRaw) : (itemRaw || []);
             } catch {
-              parsedItems = o.items || [];
+              parsedItems = o.products || o.items || [];
             }
             if (!Array.isArray(parsedItems)) parsedItems = [];
             
+            // Map items array to unified CartItem standard
+            const standardItems = parsedItems.map((pi: any) => ({
+              id: pi.product_id || pi.id || '',
+              title: pi.title || '',
+              cartQuantity: pi.quantity || pi.cartQuantity || 1,
+              price: pi.base_price || pi.price || 0,
+              finalPrice: pi.final_price || pi.finalPrice || pi.base_price || pi.price || 0,
+              commission: pi.commission || 0,
+              supplier: pi.supplier || 'CJ Dropshipping',
+              imageUrl: pi.imageUrl || ''
+            }));
+
             let parsedUpdates = [];
             try {
-              parsedUpdates = typeof o.tracking_updates === 'string' 
-                ? JSON.parse(o.tracking_updates) 
-                : (o.tracking_updates || o.trackingUpdates || []);
+              const updatesRaw = o.tracking_updates || o.trackingUpdates;
+              parsedUpdates = typeof updatesRaw === 'string' 
+                ? JSON.parse(updatesRaw) 
+                : (updatesRaw || []);
             } catch {
-              parsedUpdates = o.trackingUpdates || [];
+              parsedUpdates = [];
             }
             if (!Array.isArray(parsedUpdates)) parsedUpdates = [];
 
             return {
-              id: o.id,
-              customerName: o.customerName || o.customer_name || 'Customer',
-              email: o.email || '',
-              total: parseFloat(o.total) || 0,
-              commissionEarned: parseFloat(o.commissionEarned || o.commission_earned) || 0,
-              status: o.status || 'Processing',
-              date: o.date || new Date().toISOString(),
-              items: parsedItems,
-              trackingNumber: o.trackingNumber || o.tracking_number,
+              id: o.order_number || o.id,
+              customerName: o.customer_name || o.customerName || 'Customer',
+              email: o.customer_email || o.email || 'customer@example.com',
+              total: parseFloat(o.total_amount || o.total || 0),
+              commissionEarned: parseFloat(o.total_commission || o.commission_earned || o.commissionEarned || 0),
+              status: o.order_status || o.status || 'pending',
+              date: o.created_at || o.date || new Date().toISOString(),
+              items: standardItems,
+              trackingNumber: o.tracking_number || o.trackingNumber,
               trackingUpdates: parsedUpdates,
               supplier: o.supplier || 'CJ Dropshipping',
-              paymentMethod: o.paymentMethod || o.payment_method,
-              estimatedDelivery: o.estimatedDelivery || o.estimated_delivery,
-              cancelReason: o.cancelReason || o.cancel_reason
+              paymentMethod: o.payment_method || o.paymentMethod || 'Credit Card',
+              estimatedDelivery: o.estimated_delivery || o.estimatedDelivery,
+              cancelReason: o.cancel_reason || o.cancelReason
             };
           });
           
-          useStore.setState({ orders: mappedOrders });
+          // Merge with local orders so we retain un-synced/offline work
+          const localOrders = useStore.getState().orders || [];
+          const merged = [...mappedOrders];
+          localOrders.forEach((loc: any) => {
+            const locId = loc.order_number || loc.id;
+            if (!merged.some(m => (m.id === locId || m.id === loc.id))) {
+              merged.push(loc);
+            }
+          });
+
+          useStore.setState({ orders: merged });
         } else if (orderErr) {
           console.warn('[Supabase Sync] orders table check failed:', orderErr.message);
         }

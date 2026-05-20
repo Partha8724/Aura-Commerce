@@ -10,9 +10,9 @@ export interface Product {
   commission: number;
   profit?: number;
   finalPrice?: number;
-  stock: number;
+  stock?: number;
   sold?: number;
-  rating: number;
+  rating?: number;
   reviews?: number;
   reviewsCount?: number;
   brand?: string;
@@ -55,6 +55,22 @@ export interface Order {
   paymentMethod?: string;
   estimatedDelivery?: string;
   cancelReason?: string;
+  
+  // Database fields for dual-schema compatibility
+  order_number?: string;
+  customer_phone?: string;
+  shipping_address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+  };
+  subtotal?: number;
+  shipping_total?: number;
+  total_commission?: number;
+  payment_status?: string;
 }
 
 export interface SupportMessage {

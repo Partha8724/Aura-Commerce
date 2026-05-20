@@ -7,7 +7,18 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { cart, removeFromCart, updateCartQuantity, clearCart, addOrder, addStats } = useStore();
   const [checkoutStep, setCheckoutStep] = useState(0); // 0: cart, 1: details, 2: processing, 3: success
-  const [formData, setFormData] = useState({ name: '', email: '', cc: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    cc: ''
+  });
   const [paymentType, setPaymentType] = useState('card');
   const [checkoutTotal, setCheckoutTotal] = useState(0);
 
@@ -29,22 +40,38 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       setCheckoutStep(3);
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
       
+      const orderNum = 'AURA-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
       const newOrder: any = {
-        id: `AURA-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
+        id: orderNum,
+        order_number: orderNum,
         customerName: formData.name || 'Customer',
         email: formData.email || 'customer@example.com',
-        total: totalCost,
-        commissionEarned: 0,
-        status: 'Processing',
-        date: new Date().toISOString(),
+        customer_phone: formData.phone || '555-0100',
+        shipping_address: {
+          line1: formData.addressLine1 || '123 Luxury Ave',
+          line2: formData.addressLine2 || '',
+          city: formData.city || 'Los Angeles',
+          state: formData.state || 'California',
+          zip: formData.zip || '90001',
+          country: formData.country || 'US'
+        },
         items: [...cart],
-        supplier: cart[0]?.supplier || 'Multiple',
-        paymentMethod: 'PayPal'
+        subtotal: totalCost,
+        shipping_total: 0,
+        total_commission: totalCommission,
+        commissionEarned: totalCommission,
+        total: totalCost,
+        total_amount: totalCost,
+        status: 'pending',
+        date: new Date().toISOString(),
+        supplier: cart[0]?.supplier || 'CJ Dropshipping',
+        paymentMethod: 'PayPal',
+        payment_status: 'paid'
       };
       
       setCheckoutTotal(totalCost);
       addOrder(newOrder);
-      addStats(totalCost, 0);
+      addStats(totalCost, totalCommission);
       clearCart();
     }, 1000);
   };
@@ -58,22 +85,38 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       setCheckoutStep(3);
       confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
       
+      const orderNum = 'AURA-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
       const newOrder: any = {
-        id: `AURA-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000)}`,
+        id: orderNum,
+        order_number: orderNum,
         customerName: formData.name || 'Demo Customer',
         email: formData.email || 'demo@example.com',
-        total: totalCost,
-        commissionEarned: 0,
-        status: 'Processing',
-        date: new Date().toISOString(),
+        customer_phone: formData.phone || '555-0100',
+        shipping_address: {
+          line1: formData.addressLine1 || '123 Luxury Ave',
+          line2: formData.addressLine2 || '',
+          city: formData.city || 'Los Angeles',
+          state: formData.state || 'California',
+          zip: formData.zip || '90001',
+          country: formData.country || 'US'
+        },
         items: [...cart],
-        supplier: cart[0]?.supplier || 'Multiple',
-        paymentMethod: paymentType === 'cod' ? 'Cash on Delivery (COD)' : 'Credit Card'
+        subtotal: totalCost,
+        shipping_total: 0,
+        total_commission: totalCommission,
+        commissionEarned: totalCommission,
+        total: totalCost,
+        total_amount: totalCost,
+        status: 'pending',
+        date: new Date().toISOString(),
+        supplier: cart[0]?.supplier || 'CJ Dropshipping',
+        paymentMethod: paymentType === 'cod' ? 'Cash on Delivery (COD)' : 'Credit Card',
+        payment_status: paymentType === 'cod' ? 'pending' : 'paid'
       };
       
       setCheckoutTotal(totalCost);
       addOrder(newOrder);
-      addStats(totalCost, 0);
+      addStats(totalCost, totalCommission);
       clearCart();
     }, 2000);
   };
@@ -133,16 +176,18 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             <div className="space-y-6">
                <form id="checkout-form" onSubmit={(e) => handlePay(e)}>
                  <h3 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37] mb-4">Customer Info & Shipping</h3>
-                 <input required placeholder="Full Name" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} />
-                 <input required type="email" placeholder="Email Address" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, email: e.target.value})} />
-                 <input required placeholder="Address Line 1" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" />
+                 <input required placeholder="Full Name" value={formData.name} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} />
+                 <input required type="email" placeholder="Email Address" value={formData.email} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, email: e.target.value})} />
+                 <input required placeholder="Phone Number" value={formData.phone} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, phone: e.target.value})} />
+                 <input required placeholder="Address Line 1" value={formData.addressLine1} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, addressLine1: e.target.value})} />
+                 <input placeholder="Address Line 2 (Optional)" value={formData.addressLine2} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, addressLine2: e.target.value})} />
                  <div className="grid grid-cols-2 gap-3 mb-3">
-                   <input required placeholder="City" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" />
-                   <input required placeholder="State" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" />
+                   <input required placeholder="City" value={formData.city} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, city: e.target.value})} />
+                   <input required placeholder="State" value={formData.state} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, state: e.target.value})} />
                  </div>
                  <div className="grid grid-cols-2 gap-3 mb-3">
-                   <input required placeholder="ZIP Code" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" />
-                   <input required placeholder="Country" className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" />
+                   <input required placeholder="ZIP Code" value={formData.zip} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, zip: e.target.value})} />
+                   <input required placeholder="Country" value={formData.country} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, country: e.target.value})} />
                  </div>
                </form>
                

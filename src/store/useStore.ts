@@ -175,36 +175,78 @@ export const useStore = create<AppState>()(
         };
 
         // 1. Sync the new order to the central Supabase database
-        supabase
-          .from('orders')
-          .insert({
-            id: o.id,
-            customerName: o.customerName,
-            email: o.email,
-            total: o.total,
-            commissionEarned: o.commissionEarned,
-            status: o.status,
-            date: o.date,
-            items: o.items, // directly maps as jsonb/string
-            trackingNumber: o.trackingNumber || null,
-            trackingUpdates: o.trackingUpdates || [],
-            supplier: o.supplier,
-            paymentMethod: o.paymentMethod || null,
-            estimatedDelivery: o.estimatedDelivery || null,
-            cancelReason: o.cancelReason || null
-          })
-          .then(
-            ({ error }) => {
-              if (error) {
-                console.warn('[Supabase DB Sync] Relation check failed. Order kept in local storage.');
-              } else {
-                console.log('[Supabase DB Sync] Order successfully synchronized.');
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          const userId = user?.id;
+          
+          const dbPayload: any = {
+            order_number: o.order_number || o.id,
+            customer_name: o.customerName,
+            customer_email: o.email,
+            customer_phone: o.customer_phone || '',
+            shipping_address: o.shipping_address || {},
+            products: o.items || [],
+            subtotal: o.subtotal || o.total,
+            shipping_total: o.shipping_total || 0,
+            tax_total: 0,
+            discount_total: 0,
+            total_commission: o.total_commission || o.commissionEarned || 0,
+            total_amount: o.total,
+            payment_method: o.paymentMethod || 'Credit Card',
+            payment_status: o.payment_status || 'paid',
+            order_status: o.status || 'pending',
+            supplier: o.supplier || 'CJ Dropshipping',
+            created_at: o.date || new Date().toISOString()
+          };
+          
+          if (userId) {
+            dbPayload.user_id = userId;
+          }
+
+          supabase
+            .from('orders')
+            .insert(dbPayload)
+            .then(
+              ({ error }) => {
+                if (error) {
+                  console.warn('[Supabase DB Sync] Snake_case insert failed: ' + error.message + '. Retrying legacy insert...');
+                  
+                  // Retrying with legacy columns
+                  const legacyPayload = {
+                    id: o.id,
+                    customerName: o.customerName,
+                    email: o.email,
+                    total: o.total,
+                    commissionEarned: o.commissionEarned,
+                    status: o.status,
+                    date: o.date,
+                    items: o.items,
+                    trackingNumber: o.trackingNumber || null,
+                    trackingUpdates: o.trackingUpdates || [],
+                    supplier: o.supplier,
+                    paymentMethod: o.paymentMethod || 'Credit Card',
+                    estimatedDelivery: o.estimatedDelivery || null,
+                    cancelReason: o.cancelReason || null
+                  };
+                  
+                  supabase
+                    .from('orders')
+                    .insert(legacyPayload)
+                    .then(({ error: legacyErr }) => {
+                      if (legacyErr) {
+                        console.warn('[Supabase DB Sync] Legacy format insert failed:', legacyErr.message);
+                      } else {
+                        console.log('[Supabase DB Sync] Order synced with legacy schema.');
+                      }
+                    });
+                } else {
+                  console.log('[Supabase DB Sync] Order synchronized with snake_case schema.');
+                }
+              },
+              (err) => {
+                console.warn('[Supabase DB Sync] DB insert exception:', err);
               }
-            },
-            (err) => {
-              console.warn('[Supabase DB Sync] Connection exception:', err);
-            }
-          );
+            );
+        });
 
         // 2. Automatically push relevant CJ Dropshipping products to the merchant portal
         if (state.settings.cjConnected && state.settings.cjAccessToken) {
@@ -222,16 +264,17 @@ export const useStore = create<AppState>()(
             });
 
           if (cjProducts.length > 0) {
+            const shipping: any = o.shipping_address || {};
             const orderRequest = {
               orderNumber: o.id,
               shippingAddress: {
-                countryCode: 'US',
-                province: 'California',
-                city: 'Los Angeles',
-                address: '123 Luxury Avenue',
-                postcode: '90001',
-                name: o.customerName,
-                phone: '555-0199'
+                countryCode: shipping.country || 'US',
+                province: shipping.state || 'California',
+                city: shipping.city || 'Los Angeles',
+                address: (shipping.line1 + ' ' + (shipping.line2 || '')).trim() || '123 Luxury Avenue',
+                postcode: shipping.zip || '90001',
+                name: o.customerName || 'Customer',
+                phone: o.customer_phone || '555-0100'
               },
               products: cjProducts,
               shippingMethod: 'USPS'
@@ -320,21 +363,40 @@ export const useStore = create<AppState>()(
         }
 
         // Sync order status updates with the central Supabase database
+        // We will try updating by matching order_number = id first to support the new schema,
+        // and fall back to id = id if that returns error or fails.
+        const dbPayload: any = {
+          order_status: status,
+          status,
+          tracking_number: tracking,
+          trackingNumber: tracking,
+          cancel_reason: cancelReason || null,
+          cancelReason: cancelReason || null,
+          tracking_updates: trackingUpdates,
+          trackingUpdates,
+          commission_earned: commissionAddition,
+          commissionEarned: commissionAddition
+        };
+
         supabase
           .from('orders')
-          .update({
-            status,
-            trackingNumber: tracking,
-            cancelReason,
-            trackingUpdates,
-            commissionEarned: commissionAddition
-          })
-          .eq('id', id)
+          .update(dbPayload)
+          .eq('order_number', id)
           .then(
-            ({ error }) => {
-              if (error) {
-                console.warn('[Supabase Sync] Update failed:', error.message);
-              }
+            ({ error, data }) => {
+              supabase
+                .from('orders')
+                .update(dbPayload)
+                .eq('id', id)
+                .then(
+                  ({ error: legacyErr }) => {
+                    if (legacyErr && error) {
+                      console.warn('[Supabase Sync] Update failed under both schemas. Errors:', error.message, legacyErr.message);
+                    } else {
+                      console.log('[Supabase Sync] Status updated on central database.');
+                    }
+                  }
+                );
             },
             (err) => {
               console.warn('[Supabase Sync] Update exception:', err);
