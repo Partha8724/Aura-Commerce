@@ -372,6 +372,18 @@ export default function App() {
     initBackgroundCjSync();
   }, [updateSettings, addBotLog]);
 
+  // Periodic CJ order status tracking sync & logistics simulation
+  useEffect(() => {
+    // Proactive execution on load to capture any pending states
+    useStore.getState().syncAllCjOrders();
+
+    const interval = setInterval(() => {
+      useStore.getState().syncAllCjOrders();
+    }, 10000); // Trigger sync every 10 seconds for real-time responsiveness
+
+    return () => clearInterval(interval);
+  }, []);
+
   if (!hasSeenIntro) {
     return <Intro />;
   }

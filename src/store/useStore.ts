@@ -110,11 +110,12 @@ interface AppState {
   addNotification: (n: Omit<Notification, 'id' | 'date' | 'read'>) => void;
   markAllNotificationsRead: () => void;
   clearNotifications: () => void;
+  syncAllCjOrders: () => Promise<void>;
 }
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       hasSeenIntro: false,
       setHasSeenIntro: (val) => set({ hasSeenIntro: val }),
 
@@ -412,6 +413,140 @@ export const useStore = create<AppState>()(
           }
         };
       }),
+
+      syncAllCjOrders: async () => {
+        const { orders, settings, updateOrderStatus, addBotLog, addNotification } = get();
+        
+        // Find active orders that are not finished
+        const activeOrders = orders.filter(o => 
+          o.status !== 'Completed' && 
+          o.status !== 'Delivered' && 
+          o.status !== 'Cancelled'
+        );
+
+        if (activeOrders.length === 0) return;
+
+        for (const order of activeOrders) {
+          // 1. Try real CJ Sync if connected
+          if (settings.cjConnected && settings.cjAccessToken) {
+            try {
+              cjApi.accessToken = settings.cjAccessToken;
+              cjApi.apiKey = settings.cjApiKey || null;
+              
+              const trackingResult = await cjApi.getTracking(order.id);
+              if (trackingResult && trackingResult.trackingNumber) {
+                const freshTrackingCode = trackingResult.trackingNumber;
+                const carrier = trackingResult.shippingCompany || 'DHL Express';
+                const waypoint = trackingResult.trackingDetail || 'En route.';
+                
+                const newUpdate = {
+                  date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+                  status: `CJ Sync Node: ${waypoint}. Courier: ${carrier}`,
+                  location: trackingResult.latestLocation || 'International Air Hub'
+                };
+
+                const updatedTimeline = [
+                  newUpdate,
+                  ...(order.trackingUpdates || [])
+                ];
+
+                let targetStatus: Order['status'] = 'Shipped';
+                if (trackingResult.statusEn?.toLowerCase().includes('delivered')) {
+                  targetStatus = 'Delivered';
+                } else if (trackingResult.statusEn?.toLowerCase().includes('out for delivery') || trackingResult.statusEn?.toLowerCase().includes('arrival')) {
+                  targetStatus = 'Out for Delivery';
+                }
+
+                updateOrderStatus(order.id, targetStatus, freshTrackingCode, undefined, updatedTimeline);
+
+                addBotLog({
+                  id: `cj-sync-real-${order.id}-${Date.now()}`,
+                  bot: 'CJ Sync Bot',
+                  message: `PROTOCOL SYNC: Order ${order.id} updated live. Tracking: ${freshTrackingCode} [Carrier: ${carrier}]`,
+                  date: new Date().toLocaleTimeString(),
+                  type: 'success'
+                });
+
+                continue; // Sync complete for this order
+              }
+            } catch (err: any) {
+              console.warn(`[CJ Sync Helper] Fetch failed for ${order.id}:`, err.message);
+            }
+          }
+
+          // 2. Demo Sandbox Logistics Simulation Engine
+          const currentTime = Date.now();
+          const orderTime = new Date(order.date).getTime();
+          const timeElapsedMs = currentTime - orderTime;
+
+          let nextStatus: Order['status'] | null = null;
+          let updateDesc = '';
+          let updateLocation = '';
+          let generatedTracking = order.trackingNumber;
+
+          // Sequential progression thresholds over time
+          if (order.status === 'pending') {
+            if (timeElapsedMs >= 15000) {
+              nextStatus = 'Processing';
+              updateDesc = 'Item picked from automated shelving and wrapped in heavy-duty package.';
+              updateLocation = 'Aura Warehouse B1';
+            }
+          } else if (order.status === 'Processing') {
+            if (timeElapsedMs >= 35000) {
+              nextStatus = 'Shipped';
+              updateDesc = 'Departure Scan: Handover to DHL Air Courier flight DHL-920 with tracking update.';
+              updateLocation = 'Hong Kong Express Air Base';
+              if (!generatedTracking) {
+                generatedTracking = `DHL-CJ-${Math.floor(10000000 + Math.random() * 90000000)}`;
+              }
+            }
+          } else if (order.status === 'Shipped') {
+            if (timeElapsedMs >= 65000) {
+              nextStatus = 'Out for Delivery';
+              updateDesc = 'With vehicle: Dispatched from sorting line to delivery van for residential route.';
+              updateLocation = 'Los Angeles Distribution HQ';
+            }
+          } else if (order.status === 'Out for Delivery') {
+            if (timeElapsedMs >= 95000) {
+              nextStatus = 'Delivered';
+              updateDesc = 'Delivered: Secured inside parcel smart locker. Photos uploaded.';
+              updateLocation = 'Front Portal Cabinet';
+            }
+          }
+
+          if (nextStatus) {
+            const stepUpdate = {
+              date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+              status: updateDesc,
+              location: updateLocation
+            };
+
+            const existingUpdates = order.trackingUpdates || [];
+            const isDuplicate = existingUpdates.some(u => u.status === updateDesc);
+
+            if (!isDuplicate) {
+              const trackingTimeline = [stepUpdate, ...existingUpdates];
+              
+              updateOrderStatus(order.id, nextStatus, generatedTracking, undefined, trackingTimeline);
+
+              addBotLog({
+                id: `sim-step-${order.id}-${nextStatus}-${currentTime}`,
+                bot: 'Logistics Simulation',
+                message: `Automated Checkpoint: Order ${order.id} status is now "${nextStatus}". Tracking code: ${generatedTracking || 'Calculating...'}`,
+                date: new Date().toLocaleTimeString(),
+                type: 'info'
+              });
+
+              addNotification({
+                title: `Order Update: ${nextStatus}`,
+                message: `Your order ${order.id} changed to "${nextStatus}". Tracking No: ${generatedTracking || 'N/A'}`,
+                type: 'order',
+                email: order.email
+              });
+            }
+          }
+        }
+      },
 
       supportMessages: [
         {

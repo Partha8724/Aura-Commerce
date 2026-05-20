@@ -46,7 +46,7 @@ export interface Order {
   email: string;
   total: number;
   commissionEarned: number;
-  status: 'Processing' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Completed' | 'Cancelled';
+  status: 'pending' | 'Processing' | 'Shipped' | 'Out for Delivery' | 'Delivered' | 'Completed' | 'Cancelled';
   date: string;
   items: CartItem[];
   trackingNumber?: string;
