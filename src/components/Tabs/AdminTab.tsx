@@ -7,7 +7,7 @@ import {
   BarChart3, Package, Bot, ShoppingCart, DollarSign, CreditCard, 
   Users, Tag, LayoutDashboard, Link2, Settings, UserCircle,
   Play, StopCircle, RefreshCw, Loader2, CheckCircle2, AlertCircle,
-  Edit2, Trash2, X, Headphones, MessageSquare, Send, Check, Search
+  Edit2, Trash2, X, Headphones, MessageSquare, Send, Check, Search, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CJConnectionPanel from '../CJConnectionPanel';
@@ -219,8 +219,17 @@ function DashboardSection({ stats }: { stats: any }) {
   );
 }
 
+function cleanImageUrl(url: string | undefined): string {
+  if (!url) return '';
+  let trimmed = url.trim();
+  if (trimmed.startsWith('//')) {
+    trimmed = 'https:' + trimmed;
+  }
+  return trimmed;
+}
+
 function ensureMultipleImages(currImages: string[] | undefined, title: string, category: string): string[] {
-  const list = currImages ? [...currImages].filter(Boolean) : [];
+  const list = currImages ? [...currImages].map(img => cleanImageUrl(img)).filter(Boolean) : [];
   if (list.length === 0) {
     list.push('https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800');
   }
@@ -346,6 +355,84 @@ function BotsSection() {
         { name: 'Sleek Laptop Heatsink Stand', unsplashTerm: 'laptop', desc: 'Dual-fan silent cooling core coupled with an adjustable aerospace-grade aluminum elevate-stand.' }
       ];
 
+      const stableUnsplashMap: Record<string, string[]> = {
+        earbuds: [
+          'photo-1590658268037-6bf12165a8df',
+          'photo-1608156639585-b3a032ef9689',
+          'photo-1588449668365-d15e397f6787'
+        ],
+        smartwatch: [
+          'photo-1508685096489-7aacd43bd3b1',
+          'photo-1517502884422-41eaaced0168',
+          'photo-1579586337278-3befd40fd17a'
+        ],
+        keyboard: [
+          'photo-1587829741301-dc798b83add3',
+          'photo-1626958390898-162d3577f593',
+          'photo-1618384887929-16ec33fab9ef'
+        ],
+        powerbank: [
+          'photo-1609592424109-dd9892f1b177',
+          'photo-1583863788434-e58a36330cf0',
+          'photo-1625852516444-a27300774a40'
+        ],
+        lamp: [
+          'photo-1621252179027-94459d278660',
+          'photo-1565814329452-e1efa11c5b89',
+          'photo-1507473885765-e6ed057f782c'
+        ],
+        mouse: [
+          'photo-1615663245857-ac93bb7c39e7',
+          'photo-1625852696826-cfd8c5512b9a',
+          'photo-1527864550417-7fd91fc51a46'
+        ],
+        camera: [
+          'photo-1502982720700-bfff97f2ecac',
+          'photo-1516035069371-29a1b244cc32',
+          'photo-1526170375885-4d8ecf77b99f'
+        ],
+        humidifier: [
+          'photo-1602928321679-560bb453f190',
+          'photo-1519183071298-a2962feb14f4',
+          'photo-1530026405186-ed1ea400c3a4'
+        ],
+        charger: [
+          'photo-1622445262465-2481c4574875',
+          'photo-1606220588913-b3aacb4d2f46',
+          'photo-1611186871348-b1ce696e52c9'
+        ],
+        projector: [
+          'photo-1535016120720-40c646be5580',
+          'photo-1601944111383-71a74d47a064',
+          'photo-1489599849927-2ee91cede3ba'
+        ],
+        vr: [
+          'photo-1593508512255-86ab42a8e620',
+          'photo-1622979135225-d2ba269cf1ac',
+          'photo-1592478411213-6153e4ebc07d'
+        ],
+        ssd: [
+          'photo-1597872200319-382d3644045f',
+          'photo-1618424181497-157f25b6ddd5',
+          'photo-1531403009284-440f080d1e12'
+        ],
+        soundbar: [
+          'photo-1545454675-3531b543be5d',
+          'photo-1608248597481-496100c8c836',
+          'photo-1544383835-bda2bc66a55d'
+        ],
+        drone: [
+          'photo-1473968512647-3e447244af8f',
+          'photo-1508614589041-895b88991e3e',
+          'photo-1611843360431-7bc94b633bf9'
+        ],
+        laptop: [
+          'photo-1587614382346-4ec70e388b28',
+          'photo-1527443224154-c4a3942d3acf',
+          'photo-1517336714731-489689fd1ca8'
+        ]
+      };
+
       const list: Product[] = [];
       
       for (let i = 1; i <= count; i++) {
@@ -360,9 +447,18 @@ function BotsSection() {
         const commission = parseFloat((basePrice * marginPercent).toFixed(2));
         const finalPrice = parseFloat((basePrice + commission).toFixed(2));
         
-        const itemSearch = itemInfo.unsplashTerm;
-        const sig = Math.floor(Math.random() * 2000) + i;
-        const imageUrl = `https://images.unsplash.com/featured/800x800/?tech,${itemSearch}&sig=${sig}`;
+        const term = itemInfo.unsplashTerm;
+        const unsplashIds = stableUnsplashMap[term] || ['photo-1523275335684-37898b6baf30'];
+        const firstId = unsplashIds[i % unsplashIds.length];
+        const secondId = unsplashIds[(i + 1) % unsplashIds.length];
+        const thirdId = unsplashIds[(i + 2) % unsplashIds.length];
+
+        const imageUrl = `https://images.unsplash.com/${firstId}?auto=format&fit=crop&q=80&w=800`;
+        const imagesList = [
+          imageUrl,
+          `https://images.unsplash.com/${secondId}?auto=format&fit=crop&q=80&w=800`,
+          `https://images.unsplash.com/${thirdId}?auto=format&fit=crop&q=80&w=800`
+        ];
 
         list.push({
           id: `bot-elec-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`,
@@ -385,7 +481,7 @@ function BotsSection() {
           isNew: true,
           isDemo: false,
           tags: ['electronics', 'premium', 'automation-imported'],
-          images: [imageUrl, `https://images.unsplash.com/featured/800x800/?gadget,${itemSearch}&sig=${sig + 500}`],
+          images: imagesList,
           imageUrl
         });
       }
@@ -1139,7 +1235,7 @@ function AliExpressConnector() {
 }
 
 function ProductsSection() {
-  const { products, updateProduct, deleteProduct } = useStore();
+  const { products, updateProduct, deleteProduct, addProduct } = useStore();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form states for manual edits
@@ -1152,6 +1248,90 @@ function ProductsSection() {
   const [editImages, setEditImages] = useState<string[]>([]);
   const [editVideoUrl, setEditVideoUrl] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
+
+  // Form states for creating custom products
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newCategory, setNewCategory] = useState('Electronics');
+  const [newDescription, setNewDescription] = useState('');
+  const [newBasePrice, setNewBasePrice] = useState(0);
+  const [newFinalPrice, setNewFinalPrice] = useState(0);
+  const [newCommission, setNewCommission] = useState(0);
+  const [newImagesList, setNewImagesList] = useState<string[]>([]);
+  const [newVideoUrl, setNewVideoUrl] = useState('');
+  const [newStock, setNewStock] = useState(100);
+  const [newImageInput, setNewImageInput] = useState('');
+
+  const handleAddNewPriceChange = (val: number) => {
+    setNewFinalPrice(val);
+    setNewCommission(Math.max(0, val - newBasePrice));
+  };
+
+  const handleAddNewCommissionChange = (val: number) => {
+    setNewCommission(val);
+    setNewFinalPrice(newBasePrice + val);
+  };
+
+  const handleAddNewBasePriceChange = (val: number) => {
+    setNewBasePrice(val);
+    setNewFinalPrice(val + newCommission);
+  };
+
+  const handleAddImageToNewList = () => {
+    if (newImageInput.trim()) {
+      setNewImagesList([...newImagesList, newImageInput.trim()]);
+      setNewImageInput('');
+    }
+  };
+
+  const handleRemoveImageFromNewList = (index: number) => {
+    setNewImagesList(newImagesList.filter((_, idx) => idx !== index));
+  };
+
+  const resetNewForm = () => {
+    setNewTitle('');
+    setNewCategory('Electronics');
+    setNewDescription('');
+    setNewBasePrice(0);
+    setNewFinalPrice(0);
+    setNewCommission(0);
+    setNewImagesList([]);
+    setNewVideoUrl('');
+    setNewStock(100);
+    setNewImageInput('');
+    setIsAddingNew(false);
+  };
+
+  const submitNewProduct = () => {
+    if (!newTitle.trim()) {
+      alert('Please enter a product title!');
+      return;
+    }
+    const finalImgs = newImagesList.length > 0 ? newImagesList : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800'];
+    const customProd: Product = {
+      id: `custom-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      title: newTitle.trim(),
+      description: newDescription.trim() || 'Exquisite custom creation handpicked for premium quality, performance, and style.',
+      category: newCategory,
+      basePrice: newBasePrice,
+      commission: newCommission,
+      price: newFinalPrice,
+      finalPrice: newFinalPrice,
+      stock: newStock,
+      images: finalImgs,
+      imageUrl: finalImgs[0],
+      videoUrl: newVideoUrl.trim(),
+      supplier: 'Custom Store Inventory',
+      supplierLogo: '💎',
+      rating: 5.0,
+      reviews: 1,
+      isNew: true,
+      shipping: 'Express Global Direct',
+      delivery: '3-10 Days'
+    };
+    addProduct(customProd);
+    resetNewForm();
+  };
 
   const categoriesList = ['Electronics', 'Fashion', 'Home & Garden', 'Beauty', 'Sports & Outdoors', 'General'];
 
@@ -1213,6 +1393,12 @@ function ProductsSection() {
           <h2 className="text-3xl font-display font-bold text-white mb-2">Product Catalog ({products.length})</h2>
           <p className="text-gray-400 font-sans">Manage your active products, edit prices, and monitor stock.</p>
         </div>
+        <button 
+          onClick={() => setIsAddingNew(true)}
+          className="px-5 py-3 gold-gradient text-black text-sm font-extrabold rounded-xl transition-all uppercase tracking-wider flex items-center gap-2 hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] shadow-lg"
+        >
+          <Plus className="w-4 h-4" /> Add Custom Product
+        </button>
       </div>
 
       <div className="bg-[#141414] border border-white/5 rounded-2xl overflow-hidden">
@@ -1449,6 +1635,172 @@ function ProductsSection() {
                   className="flex-1 py-3 gold-gradient text-black font-black uppercase tracking-widest text-xs rounded-xl hover:shadow-[0_0_15px_rgba(212,175,55,0.25)] transition-all outline-none"
                 >
                   Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {isAddingNew && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ duration: 0.3, type: 'spring', stiffness: 200 }}
+              className="bg-[#121212] border border-[#D4AF37]/35 rounded-2xl p-6 w-full max-w-lg shadow-[0_0_50px_rgba(212,175,55,0.2)] max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center pb-4 border-b border-white/10 mb-6">
+                <div>
+                  <span className="text-[10px] text-[#D4AF37] font-mono uppercase tracking-widest font-black block">Direct Sourcing Engine</span>
+                  <h3 className="text-xl font-bold font-display text-white">Create New Custom Product</h3>
+                </div>
+                <button 
+                  onClick={resetNewForm}
+                  className="p-1.5 bg-[#1C1C1D] border border-white/10 rounded-full text-gray-400 hover:text-white transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block">Brand/Listing Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="Enter elegant title (e.g., Spectre Carbon Smart Ring)"
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block">Category</label>
+                    <select 
+                      value={newCategory}
+                      onChange={e => setNewCategory(e.target.value)}
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm transition-all"
+                    >
+                      {categoriesList.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block">Initial Stock</label>
+                    <input 
+                      type="number" 
+                      value={newStock}
+                      onChange={e => setNewStock(parseInt(e.target.value) || 0)}
+                      className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm font-mono transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 p-4 bg-[#0A0A0A] rounded-xl border border-white/5">
+                  <div>
+                     <label className="text-[10px] text-gray-500 uppercase tracking-wider font-extrabold mb-1 block">Base Cost ($)</label>
+                     <input 
+                       type="number" 
+                       value={newBasePrice}
+                       onChange={e => handleAddNewBasePriceChange(parseFloat(e.target.value) || 0)}
+                       className="w-full bg-[#121212] border border-white/10 rounded-lg px-2.5 py-2 text-white text-xs font-mono focus:border-[#D4AF37] outline-none"
+                     />
+                  </div>
+                  <div>
+                     <label className="text-[10px] text-gray-500 uppercase tracking-wider font-extrabold mb-1 block">Markup Margin ($)</label>
+                     <input 
+                       type="number" 
+                       value={newCommission}
+                       onChange={e => handleAddNewCommissionChange(parseFloat(e.target.value) || 0)}
+                       className="w-full bg-[#121212] border border-white/10 rounded-lg px-2.5 py-2 text-[#50C878] text-xs font-mono font-bold focus:border-[#D4AF37] outline-none"
+                     />
+                  </div>
+                  <div>
+                     <label className="text-[10px] text-[#D4AF37] uppercase tracking-wider font-extrabold mb-1 block">Retail Price ($)</label>
+                     <input 
+                       type="number" 
+                       value={newFinalPrice}
+                       onChange={e => handleAddNewPriceChange(parseFloat(e.target.value) || 0)}
+                       className="w-full bg-[#121212] border border-[#D4AF37]/40 rounded-lg px-2.5 py-2 text-white text-xs font-mono font-bold focus:border-[#D4AF37] outline-none"
+                     />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block font-sans">Storefront Description (HTML Supported)</label>
+                  <textarea 
+                    value={newDescription}
+                    onChange={e => setNewDescription(e.target.value)}
+                    placeholder="Describe the product perfectly..."
+                    rows={4}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-sm transition-all resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block">Manual Product Video URL</label>
+                  <input 
+                    type="text" 
+                    placeholder="Paste MP4 video link or product demo URL..."
+                    value={newVideoUrl}
+                    onChange={e => setNewVideoUrl(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-[#D4AF37] outline-none text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-2 block">Manual Product Images Gallery</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {newImagesList.map((img, idx) => (
+                      <div key={idx} className="relative w-14 h-14 rounded-lg overflow-hidden border border-white/10 group bg-black">
+                        <img src={img} alt="preview" className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => handleRemoveImageFromNewList(idx)}
+                          className="absolute inset-0 bg-red-600/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                    {newImagesList.length === 0 && (
+                      <div className="text-xs text-gray-500 italic py-2">No custom images added. Default placeholder will be used.</div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Add image URL (e.g. Unsplash or CDN)"
+                      value={newImageInput}
+                      onChange={e => setNewImageInput(e.target.value)}
+                      className="flex-1 bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-[#D4AF37] outline-none text-xs font-mono"
+                    />
+                    <button 
+                      onClick={handleAddImageToNewList}
+                      className="px-4 py-2.5 bg-white/10 border border-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl transition-all"
+                    >
+                      Add Image
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">Provide high-quality URLs. The top image serves as the default hero placement.</p>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-5 border-t border-white/10 flex gap-3">
+                <button 
+                  onClick={resetNewForm}
+                  className="flex-1 py-3 border border-white/10 text-gray-400 font-bold uppercase tracking-wider text-xs rounded-xl hover:bg-white/5 transition-all outline-none"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={submitNewProduct}
+                  className="flex-1 py-3 gold-gradient text-black font-black uppercase tracking-widest text-xs rounded-xl hover:shadow-[0_0_15px_rgba(212,175,55,0.25)] transition-all outline-none"
+                >
+                  Create Product
                 </button>
               </div>
             </motion.div>
