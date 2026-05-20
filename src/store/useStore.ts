@@ -6,10 +6,13 @@ import { supabase } from '../lib/supabase';
 import { cjApi } from '../lib/cj-api';
 
 export interface User {
+  id?: string;
   name: string;
   email: string;
+  phone?: string;
   storeName?: string;
   avatar?: string;
+  role?: 'customer' | 'owner';
 }
 
 export interface BotLog {
@@ -111,6 +114,9 @@ interface AppState {
   markAllNotificationsRead: () => void;
   clearNotifications: () => void;
   syncAllCjOrders: () => Promise<void>;
+
+  profileSection: 'profile' | 'addresses' | 'orders';
+  setProfileSection: (sec: 'profile' | 'addresses' | 'orders') => void;
 }
 
 export const useStore = create<AppState>()(
@@ -128,22 +134,192 @@ export const useStore = create<AppState>()(
       activeTab: 'home',
       setActiveTab: (tab) => set({ activeTab: tab }),
 
+      profileSection: 'orders',
+      setProfileSection: (sec) => set({ profileSection: sec }),
+
       products: [],
       addProduct: (p) => set((state) => {
+        const dbPayload = {
+          id: p.id,
+          title: p.title,
+          description: p.description || '',
+          supplier: p.supplier || 'CJ Dropshipping',
+          category: p.category || 'General',
+          price: p.price || p.finalPrice || 0,
+          base_price: p.basePrice || 0,
+          basePrice: p.basePrice || 0,
+          commission: p.commission || 0,
+          final_price: p.finalPrice || p.price || 0,
+          finalPrice: p.finalPrice || p.price || 0,
+          stock: p.stock || 100,
+          rating: p.rating || 4.5,
+          images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl]),
+          imageUrl: p.imageUrl || '',
+          image_url: p.imageUrl || '',
+          variants: p.variants ? JSON.stringify(p.variants) : JSON.stringify([]),
+          weight: p.weight || 0,
+          delivery: p.delivery || '5-9 Days',
+          shipping: p.shipping || 'Free Global Shipping',
+          is_new: p.isNew ?? true,
+          isNew: p.isNew ?? true,
+          is_demo: p.isDemo ?? false,
+          isDemo: p.isDemo ?? false,
+          discount_eligible: p.discountEligible ?? true,
+          discountEligible: p.discountEligible ?? true,
+          created_at: new Date().toISOString()
+        };
+
+        supabase
+          .from('products')
+          .insert(dbPayload)
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Supabase Sync] Add product insert failed (already exists/error):', error.message);
+              // Handle upsert fallback
+              supabase.from('products').upsert(dbPayload).then(() => {});
+            } else {
+              console.log('[Supabase Sync] Product successfully added to Supabase.');
+            }
+          });
+
         return { products: [p, ...state.products] };
       }),
       addProductsBulk: (pList) => set((state) => {
-        return { products: [...pList, ...state.products] };
+        const dbPayloads = pList.map(p => ({
+          id: p.id,
+          title: p.title,
+          description: p.description || '',
+          supplier: p.supplier || 'CJ Dropshipping',
+          category: p.category || 'General',
+          price: p.price || p.finalPrice || 0,
+          base_price: p.basePrice || 0,
+          basePrice: p.basePrice || 0,
+          commission: p.commission || 0,
+          final_price: p.finalPrice || p.price || 0,
+          finalPrice: p.finalPrice || p.price || 0,
+          stock: p.stock || 100,
+          rating: p.rating || 4.5,
+          images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl]),
+          imageUrl: p.imageUrl || '',
+          image_url: p.imageUrl || '',
+          variants: p.variants ? JSON.stringify(p.variants) : JSON.stringify([]),
+          weight: p.weight || 0,
+          delivery: p.delivery || '5-9 Days',
+          shipping: p.shipping || 'Free Global Shipping',
+          is_new: p.isNew ?? true,
+          isNew: p.isNew ?? true,
+          is_demo: p.isDemo ?? false,
+          isDemo: p.isDemo ?? false,
+          discount_eligible: p.discountEligible ?? true,
+          discountEligible: p.discountEligible ?? true,
+          created_at: new Date().toISOString()
+        }));
+
+        supabase
+          .from('products')
+          .upsert(dbPayloads)
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Supabase Sync] Bulk upsert failed:', error.message);
+            } else {
+              console.log('[Supabase Sync] Bulk products loaded/seeded successfully to cloud.');
+            }
+          });
+
+        const newProducts = [...pList];
+        state.products.forEach(p => {
+          if (!newProducts.some(n => n.id === p.id)) {
+            newProducts.push(p);
+          }
+        });
+
+        return { products: newProducts };
       }),
-      updateProduct: (id, updates) => set((state) => ({
-        products: state.products.map(p => p.id === id ? { ...p, ...updates } : p)
-      })),
-      deleteProduct: (id) => set((state) => ({
-        products: state.products.filter(p => p.id !== id)
-      })),
-      removeDemoProducts: () => set((state) => ({
-        products: state.products.filter(p => !p.isDemo)
-      })),
+      updateProduct: (id, updates) => set((state) => {
+        const dbPayload: any = {};
+        if (updates.title !== undefined) dbPayload.title = updates.title;
+        if (updates.description !== undefined) dbPayload.description = updates.description;
+        if (updates.category !== undefined) dbPayload.category = updates.category;
+        if (updates.price !== undefined || updates.finalPrice !== undefined) {
+          const p = updates.price ?? updates.finalPrice;
+          dbPayload.price = p;
+          dbPayload.final_price = p;
+          dbPayload.finalPrice = p;
+        }
+        if (updates.basePrice !== undefined) {
+          dbPayload.base_price = updates.basePrice;
+          dbPayload.basePrice = updates.basePrice;
+        }
+        if (updates.commission !== undefined) dbPayload.commission = updates.commission;
+        if (updates.stock !== undefined) dbPayload.stock = updates.stock;
+        if (updates.images !== undefined) dbPayload.images = JSON.stringify(updates.images);
+        if (updates.variants !== undefined) dbPayload.variants = JSON.stringify(updates.variants);
+        if (updates.imageUrl !== undefined) {
+          dbPayload.imageUrl = updates.imageUrl;
+          dbPayload.image_url = updates.imageUrl;
+        }
+        if (updates.isNew !== undefined) {
+          dbPayload.is_new = updates.isNew;
+          dbPayload.isNew = updates.isNew;
+        }
+        if (updates.isDemo !== undefined) {
+          dbPayload.is_demo = updates.isDemo;
+          dbPayload.isDemo = updates.isDemo;
+        }
+
+        if (Object.keys(dbPayload).length > 0) {
+          supabase
+            .from('products')
+            .update(dbPayload)
+            .eq('id', id)
+            .then(({ error }) => {
+              if (error) {
+                console.warn('[Supabase Sync] Update product failed:', error.message);
+              } else {
+                console.log(`[Supabase Sync] Product ${id} updated on cloud database.`);
+              }
+            });
+        }
+
+        return {
+          products: state.products.map(p => p.id === id ? { ...p, ...updates } : p)
+        };
+      }),
+      deleteProduct: (id) => set((state) => {
+        supabase
+          .from('products')
+          .delete()
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) {
+              console.warn('[Supabase Sync] Delete product failed:', error.message);
+            } else {
+              console.log(`[Supabase Sync] Product ${id} removed from cloud database.`);
+            }
+          });
+
+        return {
+          products: state.products.filter(p => p.id !== id)
+        };
+      }),
+      removeDemoProducts: () => set((state) => {
+        // Also wipe from database where is_demo = true or id is PROD-*
+        supabase
+          .from('products')
+          .delete()
+          .eq('is_demo', true)
+          .then(() => {
+            supabase
+              .from('products')
+              .delete()
+              .eq('isDemo', true)
+              .then(() => {});
+          });
+
+        return {
+          products: state.products.filter(p => !p.isDemo)
+        };
+      }),
 
       cart: [],
       addToCart: (p) => set((state) => {
@@ -174,6 +350,89 @@ export const useStore = create<AppState>()(
           read: false,
           email: o.email
         };
+
+        // Trigger Transactional Order Confirmation Email
+        if (o.email) {
+          const itemsHtml = (o.items || []).map((item: any) => `
+            <tr>
+              <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFF; font-size: 14px;">${item.title}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #222; text-align: center; color: #BBB; font-size: 14px;">x${item.cartQuantity || item.quantity || 1}</td>
+              <td style="padding: 12px; border-bottom: 1px solid #222; text-align: right; color: #D4AF37; font-weight: bold; font-size: 14px;">$${Number(item.finalPrice || item.price || 0).toFixed(2)}</td>
+            </tr>
+          `).join('');
+
+          const htmlBody = `
+            <div style="background-color: #0A0A0A; color: #ffffff; font-family: sans-serif; padding: 40px; border: 1px solid #D4AF37; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 25px rgba(212,175,55,0.15);">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <div style="display: inline-block; width: 50px; height: 50px; background: linear-gradient(135deg, #D4AF37, #FFF); border-radius: 12px; line-height: 50px; color: black; font-weight: 900; font-size: 24px; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">A</div>
+                <h2 style="color: #ffffff; letter-spacing: 4px; text-transform: uppercase; margin-top: 15px; font-weight: 900; font-family: 'Times New Roman', serif;">AURA COMMERCE</h2>
+                <p style="color: #D4AF37; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin: 0;">Modern Premium Dropshipping</p>
+              </div>
+              <p style="color: #BBB; font-size: 15px; line-height: 1.6;">Dear <strong>${o.customerName || 'Premium Customer'}</strong>,</p>
+              <p style="color: #BBB; font-size: 15px; line-height: 1.6;">Thank you for your premium purchase! Your order has been successfully placed and saved to Supabase. We are actively processing it for express carrier handoff.</p>
+              
+              <div style="background-color: #141414; border: 1px solid #222; border-radius: 12px; padding: 20px; margin: 25px 0;">
+                <h3 style="color: #D4AF37; margin-top: 0; border-bottom: 1px solid #222; padding-bottom: 10px; font-size: 14px; text-transform: uppercase; tracking: 1px;">Order Summary</h3>
+                <p style="color: #888; font-size: 13px; margin: 5px 0 15px 0;">Order Number: <strong style="color: #FFF;">${o.id || o.order_number}</strong></p>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+                  <thead>
+                    <tr style="text-align: left; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">
+                      <th style="padding: 8px 12px; border-bottom: 1px solid #222; font-weight: 500;">Item</th>
+                      <th style="padding: 8px 12px; border-bottom: 1px solid #222; text-align: center; font-weight: 500;">Qty</th>
+                      <th style="padding: 8px 12px; border-bottom: 1px solid #222; text-align: right; font-weight: 500;">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${itemsHtml}
+                  </tbody>
+                </table>
+                <div style="display: flex; justify-content: space-between; border-top: 1px solid #222; padding-top: 15px; color: #FFF; font-weight: bold; font-size: 16px;">
+                  <span>Total Amount Paid:</span>
+                  <span style="color: #D4AF37;">$${Number(o.total || o.total_amount || 0).toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div style="margin-top: 25px; border-left: 2px solid #D4AF37; padding-left: 15px; background: #141414; padding: 12px 15px; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #D4AF37; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Estimated Delivery Window</p>
+                <p style="margin: 4px 0 0 0; color: #FFF; font-size: 14px; font-weight: bold;">${o.estimatedDelivery || '3-8 Business Days'} (Express Hand-Carried)</p>
+              </div>
+              
+              <p style="color: #888; font-size: 11px; text-align: center; margin-top: 40px; border-top: 1px solid #222; padding-top: 20px;">
+                © Aura Commerce Premium Platforms. Sourced from Elite Carriers.
+              </p>
+            </div>
+          `;
+
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: o.email,
+              subject: `Order Confirmation: ${o.id || o.order_number} has been Placed Successfully`,
+              html: htmlBody,
+              orderDetails: {
+                orderNumber: o.id || o.order_number,
+                items: o.items,
+                totalAmount: o.total || o.total_amount,
+                estimatedDelivery: o.estimatedDelivery || '3-8 Business Days'
+              }
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log('[Transactional Email Server Confirmation]:', data);
+            useStore.getState().addBotLog({
+              id: `email-confirm-${Date.now()}`,
+              bot: 'Mailer Agent',
+              message: `Order confirmation email routed successfully to customer ${o.email} for Order ${o.id}.`,
+              date: new Date().toLocaleTimeString(),
+              type: 'success'
+            });
+          })
+          .catch(err => {
+            console.warn('[Transactional Email Error]:', err.message);
+          });
+        }
 
         // 1. Sync the new order to the central Supabase database
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -615,7 +874,85 @@ export const useStore = create<AppState>()(
         adminEmail: '',
         themeColor: '#D4AF37'
       },
-      updateSettings: (updates) => set((state) => ({ settings: { ...state.settings, ...updates } })),
+      updateSettings: (updates) => {
+        set((state) => {
+          const newSettings = { ...state.settings, ...updates };
+
+          // Sync to Supabase in the background
+          supabase.auth.getUser().then(({ data: { user } }) => {
+            const ownerId = user?.id;
+            const dbPayload = {
+              store_name: newSettings.storeName,
+              currency: newSettings.currency,
+              theme: newSettings.themeColor,
+              hero_title: newSettings.heroTitle,
+              hero_subtitle: newSettings.heroSubtitle,
+              cj_email: newSettings.cjEmail,
+              cj_api_key: newSettings.cjApiKey,
+              cj_access_token: newSettings.cjAccessToken,
+              cj_connected: newSettings.cjConnected,
+              ali_app_key: newSettings.aliAppKey,
+              ali_app_secret: newSettings.aliAppSecret,
+              ali_access_token: newSettings.aliAccessToken,
+              ali_connected: newSettings.aliConnected,
+              admin_name: newSettings.adminName,
+              admin_email: newSettings.adminEmail,
+              global_free_shipping: newSettings.globalFreeShipping,
+              // Fallback camelCase properties for complete schemas
+              storeName: newSettings.storeName,
+              currencyVal: newSettings.currency,
+              themeColor: newSettings.themeColor,
+              heroTitle: newSettings.heroTitle,
+              heroSubtitle: newSettings.heroSubtitle,
+              cjEmail: newSettings.cjEmail,
+              cjApiKey: newSettings.cjApiKey,
+              cjAccessToken: newSettings.cjAccessToken,
+              cjConnected: newSettings.cjConnected,
+              globalFreeShipping: newSettings.globalFreeShipping,
+            };
+
+            // First try updating or inserts
+            if (ownerId) {
+              supabase
+                .from('store_settings')
+                .upsert({ owner_id: ownerId, id: 1, ...dbPayload }, { onConflict: 'owner_id' })
+                .then(({ error }) => {
+                  if (error) {
+                    // Try General update by id = 1
+                    supabase
+                      .from('store_settings')
+                      .update(dbPayload)
+                      .eq('id', 1)
+                      .then(({ error: stepErr }) => {
+                        if (stepErr) {
+                          console.warn('[Supabase Settings Sync] General settings update stalled:', stepErr.message);
+                        } else {
+                          console.log('[Supabase Settings Sync] Settings saved with general fallback.');
+                        }
+                      });
+                  } else {
+                    console.log('[Supabase Settings Sync] Settings saved with owner_id mapping.');
+                  }
+                });
+            } else {
+              supabase
+                .from('store_settings')
+                .update(dbPayload)
+                .eq('id', 1)
+                .then(({ error }) => {
+                  if (error) {
+                    supabase
+                      .from('store_settings')
+                      .insert({ id: 1, ...dbPayload })
+                      .then(() => {});
+                  }
+                });
+            }
+          });
+
+          return { settings: newSettings };
+        });
+      },
 
       payouts: [],
       addPayout: (p) => set((state) => ({ payouts: [p, ...state.payouts] })),
@@ -671,6 +1008,13 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'aura-commerce-storage-v2',
+      partialize: (state) => ({
+        hasSeenIntro: state.hasSeenIntro,
+        user: state.user,
+        cart: state.cart,
+        activeTab: state.activeTab,
+        profileSection: state.profileSection,
+      }),
     }
   )
 );

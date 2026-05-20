@@ -9,10 +9,66 @@ import { ShopTab } from './components/Tabs/ShopTab';
 import { PartnerCentralTab } from './components/Tabs/PartnerCentralTab';
 import { AdminTab } from './components/Tabs/AdminTab';
 import { ProfileTab } from './components/Tabs/ProfileTab';
+import { OwnerAuth } from './components/OwnerAuth';
 import { ProductDetail } from './components/ProductDetail';
 import { SupportWidget } from './components/SupportWidget';
 import { supabase } from './lib/supabase';
 import { cjApi } from './lib/cj-api';
+import { Product } from './types';
+
+// Helper to reliably map database records into consistent AppState standard
+function mapDbProductToAppState(dbProd: any): Product {
+  let imagesArr: string[] = [];
+  try {
+    const rawImages = dbProd.images;
+    imagesArr = typeof rawImages === 'string' ? JSON.parse(rawImages) : (rawImages || []);
+  } catch {
+    imagesArr = [dbProd.image_url || dbProd.imageUrl];
+  }
+  if (!Array.isArray(imagesArr)) {
+    imagesArr = [dbProd.image_url || dbProd.imageUrl].filter(Boolean) as string[];
+  }
+
+  let variantsArr: any[] = [];
+  try {
+    const rawVariants = dbProd.variants;
+    variantsArr = typeof rawVariants === 'string' ? JSON.parse(rawVariants) : (rawVariants || []);
+  } catch {
+    variantsArr = [];
+  }
+  if (!Array.isArray(variantsArr)) {
+    variantsArr = [];
+  }
+
+  const final_price = parseFloat(dbProd.final_price || dbProd.price || dbProd.finalPrice || '0');
+  const base_price = parseFloat(dbProd.base_price || dbProd.basePrice || '0');
+  const commission = parseFloat(dbProd.commission || '0');
+
+  return {
+    id: dbProd.id,
+    title: dbProd.title || '',
+    description: dbProd.description || '',
+    category: dbProd.category || '',
+    basePrice: base_price || (final_price - commission) || 0,
+    commission: commission || 0,
+    finalPrice: final_price || (base_price + commission) || 0,
+    price: final_price || (base_price + commission) || 0,
+    stock: parseInt(dbProd.stock || '100'),
+    sold: parseInt(dbProd.sold || '0'),
+    rating: parseFloat(dbProd.rating || '4.5'),
+    reviews: parseInt(dbProd.reviews || '0'),
+    images: imagesArr.length > 0 ? imagesArr : [dbProd.image_url || dbProd.imageUrl].filter(Boolean) as string[],
+    imageUrl: dbProd.image_url || dbProd.imageUrl || (imagesArr[0] || ''),
+    variants: variantsArr,
+    supplier: dbProd.supplier || 'CJ Dropshipping',
+    weight: parseFloat(dbProd.weight || '0'),
+    delivery: dbProd.delivery || '5-9 Days',
+    shipping: dbProd.shipping || 'Free Global Shipping',
+    isNew: dbProd.is_new ?? dbProd.isNew ?? true,
+    isDemo: dbProd.is_demo ?? dbProd.isDemo ?? false,
+    discountEligible: dbProd.discount_eligible ?? dbProd.discountEligible ?? true,
+  };
+}
 
 export default function App() {
   const hasSeenIntro = useStore(state => state.hasSeenIntro);
@@ -52,17 +108,37 @@ export default function App() {
     };
   }, [addBotLog]);
 
+  // Unified Real-Time Database Sync Engine
   useEffect(() => {
-    async function initSupabaseSync() {
-      // Load current central orders from Supabase Database
+    async function loadProductsFromSupabase() {
+      try {
+        const { data: dbProds, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (dbProds && !error) {
+          const mapped = dbProds.map(mapDbProductToAppState);
+          useStore.setState({ products: mapped });
+          console.log('[Supabase Sync] Fetched and updated products catalog:', mapped.length);
+          return mapped;
+        } else if (error) {
+          console.warn('[Supabase Sync] products table check failed:', error.message);
+        }
+      } catch (err: any) {
+        console.warn('[Supabase Sync] Exception loading products:', err.message);
+      }
+      return [];
+    }
+
+    async function loadOrdersFromSupabase() {
       try {
         const { data: dbOrders, error: orderErr } = await supabase
           .from('orders')
           .select('*')
-          .order('date', { ascending: false });
+          .order('created_at', { ascending: false });
 
         if (dbOrders && !orderErr) {
-          console.log('[Supabase Sync] Fetched central orders:', dbOrders.length);
           const mappedOrders = dbOrders.map((o: any) => {
             let parsedItems = [];
             try {
@@ -73,7 +149,6 @@ export default function App() {
             }
             if (!Array.isArray(parsedItems)) parsedItems = [];
             
-            // Map items array to unified CartItem standard
             const standardItems = parsedItems.map((pi: any) => ({
               id: pi.product_id || pi.id || '',
               title: pi.title || '',
@@ -101,7 +176,7 @@ export default function App() {
               customerName: o.customer_name || o.customerName || 'Customer',
               email: o.customer_email || o.email || 'customer@example.com',
               total: parseFloat(o.total_amount || o.total || 0),
-              commissionEarned: parseFloat(o.total_commission || o.commission_earned || o.commissionEarned || 0),
+              commissionEarned: parseFloat(o.total_commission || o.commission_earned || o.commission_earned || o.commissionEarned || 0),
               status: o.order_status || o.status || 'pending',
               date: o.created_at || o.date || new Date().toISOString(),
               items: standardItems,
@@ -113,55 +188,162 @@ export default function App() {
               cancelReason: o.cancel_reason || o.cancelReason
             };
           });
+
+          // Compute global live metrics from orders
+          const activeOrders = mappedOrders.filter(ord => ord.status !== 'Cancelled');
+          const totalRevenue = activeOrders.reduce((sum, ord) => sum + ord.total, 0);
+          const totalOrders = activeOrders.length;
+          const totalCommissions = activeOrders.reduce((sum, ord) => sum + ord.commissionEarned, 0);
           
-          // Merge with local orders so we retain un-synced/offline work
-          const localOrders = useStore.getState().orders || [];
-          const merged = [...mappedOrders];
-          localOrders.forEach((loc: any) => {
-            const locId = loc.order_number || loc.id;
-            if (!merged.some(m => (m.id === locId || m.id === loc.id))) {
-              merged.push(loc);
+          useStore.setState({ 
+            orders: mappedOrders,
+            stats: {
+              revenue: totalRevenue,
+              orders: totalOrders,
+              commissions: totalCommissions
             }
           });
-
-          useStore.setState({ orders: merged });
+          console.log('[Supabase Sync] Fetched and updated central orders:', mappedOrders.length);
         } else if (orderErr) {
           console.warn('[Supabase Sync] orders table check failed:', orderErr.message);
         }
       } catch (err: any) {
-        console.warn('[Supabase Sync] Exception initialising central orders:', err);
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        try {
-          const { data } = await supabase
-            .from('cj_credentials')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
-            
-          if (data && data.cj_connected && data.cj_access_token) {
-            cjApi.accessToken = data.cj_access_token;
-            if (data.cj_api_key) cjApi.apiKey = data.cj_api_key;
-            updateSettings({ 
-              cjConnected: true, 
-              cjAccessToken: data.cj_access_token,
-              cjApiKey: data.cj_api_key || '' 
-            });
-          }
-        } catch (e: any) {
-          addBotLog({
-            id: Math.random().toString(),
-            bot: 'System Monitor',
-            message: `Supabase Sync Error: ${e.message || 'Unknown failure'}`,
-            date: new Date().toLocaleTimeString(),
-            type: 'warning'
-          });
-        }
+        console.warn('[Supabase Sync] Exception loading orders:', err.message);
       }
     }
-    
+
+    async function loadSettingsFromSupabase() {
+      try {
+        const { data, error } = await supabase
+          .from('store_settings')
+          .select('*')
+          .order('id', { ascending: true });
+
+        if (data && data.length > 0 && !error) {
+          const dbSettings = data[0];
+          console.log('[Supabase Sync] Fetched central store settings:', dbSettings);
+          
+          const currencyVal = dbSettings.currency || 'USD ($)';
+          updateSettings({
+            storeName: dbSettings.store_name || dbSettings.storeName || 'Aura Premium Store',
+            currency: currencyVal.includes('(') ? currencyVal : `${currencyVal} ($)`,
+            themeColor: dbSettings.theme || dbSettings.themeColor || '#D4AF37',
+            heroTitle: dbSettings.hero_title || dbSettings.heroTitle || 'ELEVATE YOUR STYLE',
+            heroSubtitle: dbSettings.hero_subtitle || dbSettings.heroSubtitle || 'Luxury curators of fine goods.',
+            cjConnected: dbSettings.cj_connected ?? dbSettings.cjConnected ?? false,
+            cjAccessToken: dbSettings.cj_access_token || dbSettings.cjAccessToken || '',
+            cjApiKey: dbSettings.cj_api_key || dbSettings.cjApiKey || '',
+            cjEmail: dbSettings.cj_email || dbSettings.cjEmail || '',
+            aliConnected: dbSettings.ali_connected ?? dbSettings.aliConnected ?? false,
+            aliAppKey: dbSettings.ali_app_key || dbSettings.aliAppKey || '',
+            aliAppSecret: dbSettings.ali_app_secret || dbSettings.aliAppSecret || '',
+            aliAccessToken: dbSettings.ali_access_token || dbSettings.aliAccessToken || '',
+            adminName: dbSettings.admin_name || dbSettings.adminName || '',
+            adminEmail: dbSettings.admin_email || dbSettings.adminEmail || '',
+            globalFreeShipping: dbSettings.global_free_shipping ?? dbSettings.globalFreeShipping ?? true,
+          });
+        }
+      } catch (err: any) {
+        console.warn('[Supabase Sync] Exception loading settings:', err.message);
+      }
+    }
+
+    // Load initial states
+    loadProductsFromSupabase();
+    loadOrdersFromSupabase();
+    loadSettingsFromSupabase();
+
+    // Check CJ integration credentials
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (authUser) {
+        supabase
+          .from('cj_credentials')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .single()
+          .then(
+            ({ data }) => {
+              if (data && data.cj_connected && data.cj_access_token) {
+                cjApi.accessToken = data.cj_access_token;
+                if (data.cj_api_key) cjApi.apiKey = data.cj_api_key;
+                updateSettings({ 
+                  cjConnected: true, 
+                  cjAccessToken: data.cj_access_token,
+                  cjApiKey: data.cj_api_key || '' 
+                });
+              }
+            },
+            (e) => {
+              console.warn('[CJ Credentials Check Warning]:', e?.message);
+            }
+          );
+      }
+    });
+
+    // Subscriptions setup for Realtime instant updates
+    const productsChannel = supabase
+      .channel('products-sync-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, (payload) => {
+        console.log('[Realtime Push] 📦 Products update detected on Postgres:', payload.eventType);
+        loadProductsFromSupabase();
+
+        if (payload.eventType === 'INSERT') {
+          useStore.getState().addNotification({
+            title: 'Product Catalog Addition',
+            message: `New luxury dropship inventory item "${payload.new.title}" was made live.`,
+            type: 'system'
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          useStore.getState().addNotification({
+            title: 'Catalog Price Update',
+            message: `Merchant refined configurations for "${payload.new.title}".`,
+            type: 'system'
+          });
+        }
+      })
+      .subscribe();
+
+    const ordersChannel = supabase
+      .channel('orders-sync-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        console.log('[Realtime Push] 📋 Orders entry change detected:', payload.eventType);
+        loadOrdersFromSupabase();
+
+        if (payload.eventType === 'INSERT') {
+          // Play real order notification sound for interactive realism
+          try {
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2857/2857-84.wav');
+            audio.volume = 0.5;
+            audio.play().catch(() => {});
+          } catch {
+            // Ignore if blocked by browser
+          }
+
+          useStore.getState().addNotification({
+            title: 'New Store Order Received',
+            message: `Express order placed by ${payload.new.customer_name || 'Premium Client'} inside store checkout screen.`,
+            type: 'order'
+          });
+        }
+      })
+      .subscribe();
+
+    const settingsChannel = supabase
+      .channel('settings-sync-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings' }, (payload) => {
+        console.log('[Realtime Push] ⚙️ Settings registry refinement:', payload.eventType);
+        loadSettingsFromSupabase();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(productsChannel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(settingsChannel);
+    };
+  }, [updateSettings]);
+
+  useEffect(() => {
     async function initBackgroundCjSync() {
       try {
         console.log('[CJ Auto-Connect] Checking for server-side CJ environment credentials...');
@@ -368,7 +550,6 @@ export default function App() {
       }
     }
 
-    initSupabaseSync();
     initBackgroundCjSync();
   }, [updateSettings, addBotLog]);
 
@@ -396,22 +577,10 @@ export default function App() {
         {activeTab === 'auth' && <Auth />}
         {activeTab === 'shop' && <ShopTab />}
         {activeTab === 'partner' && <PartnerCentralTab />}
-        {activeTab === 'admin' && (user?.email === 'parthadutta8724@gmail.com' ? (
+        {activeTab === 'admin' && (user?.role === 'owner' || user?.email === 'parthadutta8724@gmail.com' ? (
           <AdminTab />
         ) : (
-          <div className="max-w-md mx-auto my-24 p-8 bg-[#141414] border border-red-500/20 rounded-2xl text-center shadow-[0_0_50px_rgba(255,0,0,0.05)]">
-            <span className="inline-block w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 font-bold mb-4 mx-auto text-xl font-mono">!</span>
-            <h2 className="text-xl font-bold text-white mb-2">Restricted Access</h2>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
-              The Admin Panel is an exclusive system restricted to the authorized developer email: <b className="text-white">parthadutta8724@gmail.com</b>. Standard users and customers cannot visit or view administrative panels.
-            </p>
-            <button 
-              onClick={() => useStore.getState().setActiveTab('home')}
-              className="px-6 py-2.5 bg-[#D4AF37] text-black font-bold uppercase tracking-widest text-xs rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all"
-            >
-              Return Home
-            </button>
-          </div>
+          <OwnerAuth />
         ))}
         {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'contact' && (

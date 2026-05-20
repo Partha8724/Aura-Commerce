@@ -70,6 +70,7 @@ export interface Order {
   subtotal?: number;
   shipping_total?: number;
   total_commission?: number;
+  total_amount?: number;
   payment_status?: string;
 }
 

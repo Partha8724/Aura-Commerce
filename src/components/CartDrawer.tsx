@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ShoppingBag, CreditCard } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import confetti from 'canvas-confetti';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { supabase } from '../lib/supabase';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { cart, removeFromCart, updateCartQuantity, clearCart, addOrder, addStats } = useStore();
+  const { cart, removeFromCart, updateCartQuantity, clearCart, addOrder, addStats, user } = useStore();
   const [checkoutStep, setCheckoutStep] = useState(0); // 0: cart, 1: details, 2: processing, 3: success
   const [formData, setFormData] = useState({
     name: '',
@@ -21,6 +22,93 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   });
   const [paymentType, setPaymentType] = useState('card');
   const [checkoutTotal, setCheckoutTotal] = useState(0);
+
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+
+  useEffect(() => {
+    if (user && isOpen) {
+      // Set initial profile values
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        email: prev.email || user.email || '',
+        phone: prev.phone || user.phone || ''
+      }));
+
+      // Fetch saved addresses
+      const fetchAddresses = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('customer_addresses')
+            .select('*')
+            .eq('user_id', user.id);
+          
+          if (data && data.length > 0) {
+            setSavedAddresses(data);
+            // Check for default
+            const def = data.find(a => a.is_default) || data[0];
+            if (def) {
+              setSelectedAddressId(def.id);
+              setFormData(prev => ({
+                ...prev,
+                addressLine1: def.address_line1 || '',
+                addressLine2: def.address_line2 || '',
+                city: def.city || '',
+                state: def.state || '',
+                zip: def.zip_code || '',
+                country: def.country || 'US'
+              }));
+            }
+          } else {
+            // Local storage fallback
+            const local = JSON.parse(localStorage.getItem(`aura_addresses_${user.id}`) || '[]');
+            if (local && local.length > 0) {
+              setSavedAddresses(local);
+              const def = local.find((a: any) => a.is_default) || local[0];
+              if (def) {
+                setSelectedAddressId(def.id);
+                setFormData(prev => ({
+                  ...prev,
+                  addressLine1: def.address_line1 || '',
+                  addressLine2: def.address_line2 || '',
+                  city: def.city || '',
+                  state: def.state || '',
+                  zip: def.zip_code || '',
+                  country: def.country || 'US'
+                }));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Sync address load error inside cart checkout:', e);
+        }
+      };
+
+      fetchAddresses();
+    }
+  }, [user, isOpen]);
+
+  const handleSelectSavedAddress = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const addrId = e.target.value;
+    setSelectedAddressId(addrId);
+    if (!addrId) return;
+
+    const selected = savedAddresses.find(a => a.id === addrId);
+    if (selected) {
+      setFormData(prev => ({
+        ...prev,
+        name: selected.full_name || prev.name,
+        phone: selected.phone || prev.phone,
+        addressLine1: selected.address_line1 || '',
+        addressLine2: selected.address_line2 || '',
+        city: selected.city || '',
+        state: selected.state || '',
+        zip: selected.zip_code || '',
+        country: selected.country || 'US'
+      }));
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -176,6 +264,25 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             <div className="space-y-6">
                <form id="checkout-form" onSubmit={(e) => handlePay(e)}>
                  <h3 className="text-xs font-bold uppercase tracking-widest text-[#D4AF37] mb-4">Customer Info & Shipping</h3>
+                 
+                 {user && savedAddresses.length > 0 && (
+                   <div className="mb-4">
+                     <label className="text-[10px] text-[#D4AF37] uppercase tracking-wider block mb-1 font-bold font-sans">Use Saved Address</label>
+                     <select
+                       value={selectedAddressId}
+                       onChange={handleSelectSavedAddress}
+                       className="w-full bg-[#0A0A0A] border border-[#D4AF37]/40 rounded p-3 text-sm text-white focus:border-[#D4AF37] outline-none transition-all font-sans"
+                     >
+                       <option value="">-- Choose saved destination --</option>
+                       {savedAddresses.map((addr) => (
+                         <option key={addr.id} value={addr.id}>
+                           {addr.label} &mdash; {addr.full_name} ({addr.city}, {addr.state})
+                         </option>
+                       ))}
+                     </select>
+                   </div>
+                 )}
+
                  <input required placeholder="Full Name" value={formData.name} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, name: e.target.value})} />
                  <input required type="email" placeholder="Email Address" value={formData.email} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, email: e.target.value})} />
                  <input required placeholder="Phone Number" value={formData.phone} className="w-full bg-[#0A0A0A] border border-[#D4AF37]/20 rounded p-3 text-sm mb-3 text-white focus:border-[#D4AF37] outline-none transition-colors" onChange={e => setFormData({...formData, phone: e.target.value})} />

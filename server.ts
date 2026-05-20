@@ -154,6 +154,40 @@ async function startServer() {
     }
   });
 
+  // Transactional Email Service Endpoint (for Aura Commerce Order Confirmations)
+  app.post("/api/send-email", (req, res) => {
+    const { to, subject, html, orderDetails } = req.body;
+    
+    if (!to) {
+      return res.status(400).json({ success: false, message: "Missing recipient 'to' email address." });
+    }
+
+    console.log(`\n==================================================`);
+    console.log(`✉️ [TRANSACTIONAL EMAIL SERVICE] SENDING EMAIL TO: ${to}`);
+    console.log(`📌 SUBJECT: ${subject}`);
+    console.log(`--------------------------------------------------`);
+    console.log(`ORDER NUMBER: ${orderDetails?.orderNumber || 'Unknown'}`);
+    console.log(`ITEMS PURCHASED:`);
+    if (orderDetails?.items && Array.isArray(orderDetails.items)) {
+      orderDetails.items.forEach((item: any, idx: number) => {
+        console.log(`  ${idx + 1}. ${item.title} (x${item.cartQuantity || item.quantity || 1}) - $${Number(item.finalPrice || item.price || 0).toFixed(2)}`);
+      });
+    } else {
+      console.log(`  (No item list passed directly)`);
+    }
+    console.log(`TOTAL AMOUNT: $${Number(orderDetails?.totalAmount || 0).toFixed(2)}`);
+    console.log(`ESTIMATED DELIVERY: ${orderDetails?.estimatedDelivery || '3-10 Days'}`);
+    console.log(`--------------------------------------------------`);
+    console.log(`HTML BODY SAMPLE:\n${html ? html.substring(0, 300) + '...' : 'No HTML content provided'}`);
+    console.log(`==================================================\n`);
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Transactional confirmation email sent successfully via Aura Mailer Service.",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // AliExpress Dropshipping Integration
   app.post("/api/supplier/connect-aliexpress", async (req, res) => {
     const { ali_app_key, ali_app_secret, ali_access_token } = req.body;

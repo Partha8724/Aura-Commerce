@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff, Lock, Mail, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User as UserIcon, ArrowLeft, Phone } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { supabase } from '../lib/supabase';
 
@@ -19,6 +19,7 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +50,58 @@ export function Auth() {
         if (supaError) throw supaError;
         
         if (data.user) {
-          setUser({ name: data.user.user_metadata?.full_name || 'User', email: data.user.email, storeName: 'Aura Commerce', avatar: '' });
+          // Check if registered as owner
+          try {
+            const { data: ownerData } = await supabase
+              .from('platform_owner')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
+
+            if (ownerData) {
+              setUser({
+                id: data.user.id,
+                name: ownerData.owner_name,
+                email: data.user.email || email,
+                storeName: ownerData.store_name,
+                role: 'owner',
+                phone: ownerData.phone || '',
+                avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ownerData.owner_name) + '&background=D4AF37&color=000'
+              });
+              setActiveTab('admin');
+              setLoading(false);
+              return;
+            }
+          } catch (e) {
+            console.warn('Silent owner lookup check failed:', e);
+          }
+
+          // Let's query customer profiles
+          let customerName = data.user.user_metadata?.full_name || 'Customer';
+          let customerPhone = '';
+          try {
+            const { data: custProfile } = await supabase
+              .from('customer_profiles')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
+            if (custProfile) {
+              customerName = custProfile.full_name;
+              customerPhone = custProfile.phone || '';
+            }
+          } catch (e) {
+            console.warn('Silent customer lookup check failed:', e);
+          }
+
+          setUser({
+            id: data.user.id,
+            name: customerName,
+            email: data.user.email || email,
+            phone: customerPhone,
+            storeName: 'Aura Commerce',
+            role: 'customer',
+            avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(customerName) + '&background=D4AF37&color=000'
+          });
           setActiveTab('shop');
         }
       } else if (view === 'register') {
@@ -57,18 +109,45 @@ export function Auth() {
           email,
           password,
           options: {
-            data: { full_name: name }
+            data: { 
+              full_name: name,
+              role: 'customer'
+            }
           }
         });
         if (supaError) throw supaError;
         
         if (data.user) {
-           if (data.session) {
-             setUser({ name, email, storeName: 'Aura Commerce', avatar: '' });
-             setActiveTab('shop');
-           } else {
-             setSuccessMsg('Registration successful! Please check your email to verify.');
-           }
+          // Write to customer_profiles table
+          try {
+            await supabase
+              .from('customer_profiles')
+              .insert({
+                user_id: data.user.id,
+                full_name: name,
+                email: email,
+                phone: phone,
+                total_orders: 0,
+                total_spent: 0
+              });
+          } catch (tableErr: any) {
+            console.warn('customer_profiles insert call skipped/failed:', tableErr.message);
+          }
+
+          if (data.session) {
+            setUser({
+              id: data.user.id,
+              name: name,
+              email: email,
+              phone: phone,
+              storeName: 'Aura Commerce',
+              role: 'customer',
+              avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=D4AF37&color=000'
+            });
+            setActiveTab('shop');
+          } else {
+            setSuccessMsg('Registration successful! Please check your email to verify.');
+          }
         }
       }
     } catch (err: any) {
@@ -163,13 +242,23 @@ export function Auth() {
               )}
 
               {view === 'register' && (
-                <div className="relative group">
-                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#D4AF37] transition-colors" />
-                  <input
-                    type="text" required placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-[#0A0A0A]/50 border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#D4AF37] focus:bg-white/5 transition-all"
-                  />
-                </div>
+                <>
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#D4AF37] transition-colors" />
+                    <input
+                      type="text" required placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)}
+                      className="w-full bg-[#0A0A0A]/50 border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#D4AF37] focus:bg-white/5 transition-all"
+                    />
+                  </div>
+
+                  <div className="relative group">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#D4AF37] transition-colors" />
+                    <input
+                      type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)}
+                      className="w-full bg-[#0A0A0A]/50 border border-white/5 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-[#D4AF37] focus:bg-white/5 transition-all"
+                    />
+                  </div>
+                </>
               )}
 
               <div className="relative group">

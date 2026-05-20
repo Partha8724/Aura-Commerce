@@ -23,7 +23,8 @@ export function TopNav() {
     setIsCartOpen,
     notifications,
     markAllNotificationsRead,
-    clearNotifications
+    clearNotifications,
+    setProfileSection
   } = useStore();
 
   const [bouncing, setBouncing] = useState(false);
@@ -312,10 +313,11 @@ export function TopNav() {
                       </div>
                       
                       <div className="p-2 border-b border-white/5 mb-1 flex flex-col gap-1">
-                        <button onClick={() => { handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Account</button>
-                        <button onClick={() => { handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Orders</button>
+                        <button onClick={() => { setProfileSection('profile'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Account</button>
+                        <button onClick={() => { setProfileSection('orders'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Orders</button>
+                        <button onClick={() => { setProfileSection('addresses'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Addresses</button>
                         
-                        {user.email === 'parthadutta8724@gmail.com' && (
+                        {(user.role === 'owner' || user.email === 'parthadutta8724@gmail.com') && (
                           <button onClick={() => { handleTabClick('admin'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2 transition-colors rounded-lg">
                             <Settings className="w-4 h-4" /> Admin Panel
                           </button>
