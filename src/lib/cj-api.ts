@@ -299,7 +299,7 @@ export class CJApiClient {
    * Order Fulfilment
    */
   async createOrder(orderRequest: CJOrderRequest): Promise<CJOrderResponse> {
-    return this.request('/order/create', {
+    return this.request('/order/createOrder', {
       method: 'POST',
       body: JSON.stringify(orderRequest)
     });

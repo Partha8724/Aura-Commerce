@@ -2078,39 +2078,34 @@ function OrdersSection() {
       console.error('[CJ Sync Failure]', err);
       setCjActionStatus(prev => ({ ...prev, [orderId]: 'error' }));
       
-      // Keep state processing but write warning
+      const failedHandshakeUpdates = [
+        {
+          date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
+          status: `CJ Dropshipping manual sync failed: ${err.message || 'Connection Refused'}.`,
+          location: 'Aura Logistics Gateway'
+        },
+        ...(order.trackingUpdates || [])
+      ];
+
+      updateOrderStatus(orderId, 'pending', '', undefined, failedHandshakeUpdates);
+      setSelectedOrder((prev: any) => {
+        if (!prev || prev.id !== orderId) return prev;
+        return {
+          ...prev,
+          status: 'pending',
+          trackingUpdates: failedHandshakeUpdates
+        };
+      });
+
       addBotLog({
         id: `cj-manual-err-${Date.now()}`,
         bot: 'CJ Dropshipping',
-        message: `Sync warning for ${orderId}: ${err.message}. Offline sandbox queues generated.`,
+        message: `Sync failed for ${orderId}: ${err.message}. Ready for manual retry.`,
         date: new Date().toLocaleTimeString(),
         type: 'warning'
       });
 
-      // Sandbox simulated success if actual server is disconnected or in local environment
-      setTimeout(() => {
-        const mockCjOrderId = `CJ-MOCK-${Math.floor(100000 + Math.random() * 900000)}`;
-        const setupMockUpdates = [
-          {
-            date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', Today',
-            status: `Simulated order forwarded to CJ Dropshipping sandbox. System assigned Reference ID: ${mockCjOrderId}`,
-            location: 'Aura Core Cloud'
-          },
-          ...(order.trackingUpdates || [])
-        ];
-        
-        updateOrderStatus(orderId, 'Processing', order.trackingNumber || `CJ-TRK-${Math.floor(100000 + Math.random() * 900000)}`, undefined, setupMockUpdates);
-        setSelectedOrder((prev: any) => {
-          if (!prev || prev.id !== orderId) return prev;
-          return {
-            ...prev,
-            status: 'Processing',
-            trackingUpdates: setupMockUpdates
-          };
-        });
-        
-        setCjActionStatus(prev => ({ ...prev, [orderId]: 'success' }));
-      }, 1500);
+      alert(`Manual CJ dropshipping order fulfillment failed: ${err.message}`);
     }
   };
 
@@ -2518,21 +2513,39 @@ function OrdersSection() {
                 
                 <div className="grid grid-cols-2 gap-3">
                   {/* Fulfill manual button */}
-                  <button
-                    disabled={cjActionStatus[selectedOrder.id] === 'loading'}
-                    onClick={() => handleFulfillManualCJ(selectedOrder)}
-                    className="w-full bg-[#D4AF37] hover:brightness-110 active:scale-95 text-black py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    {cjActionStatus[selectedOrder.id] === 'loading' ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Push...
-                      </>
-                    ) : (
-                      <>
-                        <Package className="w-3.5 h-3.5" /> Forward order
-                      </>
-                    )}
-                  </button>
+                  {selectedOrder.status === 'pending' || selectedOrder.status === 'Pending' ? (
+                    <button
+                      disabled={cjActionStatus[selectedOrder.id] === 'loading'}
+                      onClick={() => handleFulfillManualCJ(selectedOrder)}
+                      className="w-full bg-red-600 hover:bg-red-700 hover:shadow-[0_0_15px_rgba(220,38,38,0.4)] text-white py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {cjActionStatus[selectedOrder.id] === 'loading' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Retrying...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5" /> Retry CJ Fulfillment
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      disabled={cjActionStatus[selectedOrder.id] === 'loading'}
+                      onClick={() => handleFulfillManualCJ(selectedOrder)}
+                      className="w-full bg-[#D4AF37] hover:brightness-110 active:scale-95 text-black py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    >
+                      {cjActionStatus[selectedOrder.id] === 'loading' ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Push...
+                        </>
+                      ) : (
+                        <>
+                          <Package className="w-3.5 h-3.5" /> Forward order
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   {/* Get tracking button */}
                   <button

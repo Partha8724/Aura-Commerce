@@ -1133,6 +1133,14 @@ export const useStore = create<AppState>()(
             get().updateOrderStatus(orderObject.id, 'Processing', trackingNumber, undefined, updatedUpdates);
             
             return { success: true, orderId: orderObject.id, cjOrderId: cjResult.cjOrderId };
+          } else {
+            // Supplier handshake failed - track the error in the order's history and keep it pending
+            const failedUpdates = [
+              { date: new Date().toLocaleDateString(), status: `Fulfillment handshake failed: ${cjResult.error || 'Connection timed out'}. Ready for retry.`, location: 'Aura Logistics Gateway' },
+              ...orderObject.trackingUpdates
+            ];
+
+            get().updateOrderStatus(orderObject.id, 'pending', '', undefined, failedUpdates);
           }
 
           return { success: true, orderId: orderObject.id };
@@ -1359,8 +1367,6 @@ export const useStore = create<AppState>()(
         cart: state.cart,
         activeTab: state.activeTab,
         profileSection: state.profileSection,
-        products: state.products,
-        orders: state.orders,
         stats: state.stats,
         settings: state.settings,
         botLogs: state.botLogs,
