@@ -37,23 +37,46 @@ export function OwnerAuth() {
         if (supaError) throw supaError;
 
         if (data.user) {
-          // Check if registered as owner
-          const { data: ownerData, error: dbError } = await supabase
-            .from('platform_owner')
-            .select('*')
-            .eq('user_id', data.user.id)
-            .maybeSingle();
+          // Check standard profiles first
+          let ownerName = data.user.user_metadata?.full_name || 'Owner';
+          let storeNameVal = 'Aura Commerce';
+          let ownerPhone = '';
 
-          if (dbError) console.warn('Failed to verify Owner database profile, using fallback:', dbError);
+          try {
+            const { data: standardProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
+
+            if (standardProfile) {
+              ownerName = standardProfile.full_name || standardProfile.name || ownerName;
+              ownerPhone = standardProfile.phone || '';
+            }
+
+            const { data: ownerData } = await supabase
+              .from('platform_owner')
+              .select('*')
+              .eq('user_id', data.user.id)
+              .maybeSingle();
+
+            if (ownerData) {
+              ownerName = ownerData.owner_name || ownerName;
+              storeNameVal = ownerData.store_name || storeNameVal;
+              ownerPhone = ownerData.phone || ownerPhone;
+            }
+          } catch (e) {
+            console.warn('Failed to verify Owner database profile, using fallback:', e);
+          }
 
           setUser({
             id: data.user.id,
-            name: ownerData?.owner_name || data.user.user_metadata?.full_name || 'Owner',
+            name: ownerName,
             email: data.user.email || email,
-            storeName: ownerData?.store_name || 'Aura Commerce Store',
+            storeName: storeNameVal,
             role: 'owner',
-            phone: ownerData?.phone || '',
-            avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ownerData?.owner_name || 'Owner') + '&background=D4AF37&color=000'
+            phone: ownerPhone,
+            avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ownerName) + '&background=D4AF37&color=000'
           });
 
           setSuccessMsg('Signed in successfully as Platform Owner!');
@@ -80,19 +103,34 @@ export function OwnerAuth() {
         if (supaError) throw supaError;
 
         if (data.user) {
-          // Create record in platform_owner table
-          const { error: dbError } = await supabase
-            .from('platform_owner')
-            .insert({
-              user_id: data.user.id,
-              store_name: storeName,
-              owner_name: fullName,
-              owner_email: email,
-              phone: phone,
-              is_admin: true
-            });
+          // Create record in profiles table (Rule 6: ONE database for everything, standard schema)
+          try {
+            await supabase
+              .from('profiles')
+              .insert({
+                user_id: data.user.id,
+                full_name: fullName,
+                email: email,
+                phone: phone,
+                is_admin: true
+              });
+          } catch (dbError: any) {
+            console.warn('Profiles table insert skipped or database schema missing:', dbError.message);
+          }
 
-          if (dbError) {
+          // Create record in platform_owner table (backward compatibility)
+          try {
+            await supabase
+              .from('platform_owner')
+              .insert({
+                user_id: data.user.id,
+                store_name: storeName,
+                owner_name: fullName,
+                owner_email: email,
+                phone: phone,
+                is_admin: true
+              });
+          } catch (dbError: any) {
             console.warn('Skipping table platform_owner or error during insertion:', dbError.message);
           }
 

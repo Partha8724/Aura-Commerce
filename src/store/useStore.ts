@@ -436,12 +436,13 @@ export const useStore = create<AppState>()(
           const userId = user?.id;
           
           const dbPayload: any = {
+            id: generateDeterministicUUID(o.order_number || o.id || Math.random().toString()),
             order_number: o.order_number || o.id,
-            customer_name: o.customerName,
-            customer_email: o.email,
+            customer_name: o.customerName || 'Premium Customer',
+            customer_email: o.email || 'customer@example.com',
             customer_phone: o.customer_phone || '',
-            shipping_address: o.shipping_address || {},
-            products: o.items || [],
+            shipping_address: typeof o.shipping_address === 'string' ? o.shipping_address : JSON.stringify(o.shipping_address || {}),
+            products: typeof o.items === 'string' ? o.items : JSON.stringify(o.items || []),
             subtotal: o.subtotal || o.total,
             shipping_total: o.shipping_total || 0,
             tax_total: 0,
@@ -469,14 +470,14 @@ export const useStore = create<AppState>()(
                   
                   // Retrying with legacy columns
                   const legacyPayload = {
-                    id: o.id,
+                    id: generateDeterministicUUID(o.id || Math.random().toString()),
                     customerName: o.customerName,
                     email: o.email,
                     total: o.total,
                     commissionEarned: o.commissionEarned,
                     status: o.status,
                     date: o.date,
-                    items: o.items,
+                    items: typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []),
                     trackingNumber: o.trackingNumber || null,
                     trackingUpdates: o.trackingUpdates || [],
                     supplier: o.supplier,
@@ -506,17 +507,32 @@ export const useStore = create<AppState>()(
         });
 
         // 2. Automatically push relevant CJ Dropshipping products to the merchant portal
-        if (state.settings.cjConnected && state.settings.cjAccessToken) {
-          cjApi.accessToken = state.settings.cjAccessToken;
-          cjApi.apiKey = state.settings.cjApiKey || null;
+        const merchantCjToken = state.settings.cjAccessToken || (typeof window !== 'undefined' ? localStorage.getItem('cj_access_token') : null);
+        if (state.settings.cjConnected && merchantCjToken) {
+          cjApi.accessToken = merchantCjToken;
+          cjApi.apiKey = state.settings.cjApiKey || (typeof window !== 'undefined' ? localStorage.getItem('cj_api_key') : null) || null;
 
           const cjProducts = (o.items || [])
-            .filter((item: any) => item.id.startsWith('cj-') || (item.tags && item.tags.includes('automation-imported')))
             .map((item: any) => {
-              const cleanVid = item.vid || item.id.replace('cj-', '');
+              // 1. Check if we have an explicit variant sku/vid
+              let cleanVid = item.vid || item.variant_sku || item.variantSku || item.sku || '';
+              if (typeof cleanVid === 'string' && cleanVid.startsWith('cj-')) {
+                cleanVid = cleanVid.substring(3);
+              }
+              // 2. If not, look up in state products list
+              if (!cleanVid) {
+                const storeProd = state.products.find(sp => sp.id === item.id);
+                if (storeProd && storeProd.variants && storeProd.variants.length > 0) {
+                  cleanVid = storeProd.variants[0].vid || storeProd.variants[0].sku || '';
+                }
+              }
+              // 3. Fallback to product id
+              if (!cleanVid) {
+                cleanVid = item.id;
+              }
               return {
                 vid: cleanVid,
-                quantity: item.cartQuantity || 1
+                quantity: item.cartQuantity || item.quantity || 1
               };
             });
 

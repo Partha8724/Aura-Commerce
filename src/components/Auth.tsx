@@ -50,59 +50,72 @@ export function Auth() {
         if (supaError) throw supaError;
         
         if (data.user) {
-          // Check if registered as owner
+          // Unified profiles lookup query to support "one database for everything" and account linking
+          let finalName = data.user.user_metadata?.full_name || 'Customer';
+          let finalPhone = '';
+          let userRole = 'customer';
+          let userStoreName = 'Aura Commerce';
+
           try {
-            const { data: ownerData } = await supabase
-              .from('platform_owner')
+            // Priority 1: Check the standard profiles table defined in user specification
+            const { data: standardProfile, error: stdError } = await supabase
+              .from('profiles')
               .select('*')
               .eq('user_id', data.user.id)
               .maybeSingle();
 
-            if (ownerData) {
-              setUser({
-                id: data.user.id,
-                name: ownerData.owner_name,
-                email: data.user.email || email,
-                storeName: ownerData.store_name,
-                role: 'owner',
-                phone: ownerData.phone || '',
-                avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ownerData.owner_name) + '&background=D4AF37&color=000'
-              });
-              setActiveTab('admin');
-              setLoading(false);
-              return;
-            }
-          } catch (e) {
-            console.warn('Silent owner lookup check failed:', e);
-          }
+            if (standardProfile && !stdError) {
+              finalName = standardProfile.full_name || standardProfile.name || finalName;
+              finalPhone = standardProfile.phone || '';
+              userRole = standardProfile.is_admin ? 'owner' : 'customer';
+            } else {
+              // Priority 2: Check standard fallback platform_owner Table for legacy admin matches
+              const { data: ownerProfile } = await supabase
+                .from('platform_owner')
+                .select('*')
+                .eq('user_id', data.user.id)
+                .maybeSingle();
 
-          // Let's query customer profiles
-          let customerName = data.user.user_metadata?.full_name || 'Customer';
-          let customerPhone = '';
-          try {
-            const { data: custProfile } = await supabase
-              .from('customer_profiles')
-              .select('*')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-            if (custProfile) {
-              customerName = custProfile.full_name;
-              customerPhone = custProfile.phone || '';
+              if (ownerProfile) {
+                finalName = ownerProfile.owner_name || finalName;
+                finalPhone = ownerProfile.phone || '';
+                userRole = 'owner';
+                userStoreName = ownerProfile.store_name || userStoreName;
+              } else {
+                // Priority 3: Check standard customer_profiles Table
+                const { data: custProfile } = await supabase
+                  .from('customer_profiles')
+                  .select('*')
+                  .eq('user_id', data.user.id)
+                  .maybeSingle();
+                
+                if (custProfile) {
+                  finalName = custProfile.full_name || finalName;
+                  finalPhone = custProfile.phone || '';
+                }
+              }
             }
           } catch (e) {
-            console.warn('Silent customer lookup check failed:', e);
+            console.warn('Silent integrated profile verification bypassed:', e);
           }
 
           setUser({
             id: data.user.id,
-            name: customerName,
+            name: finalName,
             email: data.user.email || email,
-            phone: customerPhone,
-            storeName: 'Aura Commerce',
-            role: 'customer',
-            avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(customerName) + '&background=D4AF37&color=000'
+            phone: finalPhone,
+            storeName: userStoreName,
+            role: userRole as any,
+            avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(finalName) + '&background=D4AF37&color=000'
           });
-          setActiveTab('shop');
+
+          if (userRole === 'owner') {
+            setActiveTab('admin');
+          } else {
+            setActiveTab('shop');
+          }
+          setLoading(false);
+          return;
         }
       } else if (view === 'register') {
         const { data, error: supaError } = await supabase.auth.signUp({
@@ -118,7 +131,21 @@ export function Auth() {
         if (supaError) throw supaError;
         
         if (data.user) {
-          // Write to customer_profiles table
+          // Double-write to both "profiles" (specified) and "customer_profiles" (compatibility)
+          try {
+            await supabase
+              .from('profiles')
+              .insert({
+                user_id: data.user.id,
+                full_name: name,
+                email: email,
+                phone: phone,
+                is_admin: false
+              });
+          } catch (tableErr: any) {
+            console.warn('Standard profiles table lookup skipped or database schema missing:', tableErr.message);
+          }
+
           try {
             await supabase
               .from('customer_profiles')
