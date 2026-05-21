@@ -435,12 +435,12 @@ export function HomeTab() {
         </motion.div>
       </section>
 
-      {/* 3D SHOWCASE SECTION */}
-      <section className="py-32 bg-[#050505] relative overflow-hidden">
+      {/* EXPLOSIVE PRODUCTS SECTION */}
+      <section id="explosive" className="py-32 bg-[#050505] relative overflow-hidden">
         <div className="max-w-[1400px] mx-auto px-6 relative z-10">
           <div className="text-center mb-24">
             <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6 uppercase tracking-wider">
-               State of the Art <span className="text-[#D4AF37]">Products</span>
+               EXPLOSIVE <span className="text-[#D4AF37]">Products</span>
             </h2>
             <p className="text-gray-500 max-w-xl mx-auto font-light text-lg">
                Hover to explore technical specifications and profit margins for our most exclusive drops.
@@ -463,8 +463,8 @@ export function HomeTab() {
         </div>
       </section>
 
-      {/* TODAY'S BEST DEALS SECTION - 3D INTERACTIVE TILT STAGE */}
-      <section className="py-32 bg-gradient-to-b from-[#050505] via-[#050505] to-[#0A0A0A] relative overflow-hidden border-t border-b border-white/5">
+      {/* DEALS ZONE SECTION */}
+      <section id="deals" className="py-32 bg-gradient-to-b from-[#050505] via-[#050505] to-[#0A0A0A] relative overflow-hidden border-t border-b border-white/5">
         {/* Radial glow to replace raw black and white */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] bg-gradient-to-r from-purple-500/10 via-[#D4AF37]/10 to-transparent blur-[140px] pointer-events-none rounded-full" />
         
@@ -476,8 +476,8 @@ export function HomeTab() {
                 <span className="text-[#D4AF37] text-xs font-black tracking-[0.4em] uppercase">LIVE MARGIN OPTIMIZATION ON</span>
               </div>
               <h2 className="text-4xl md:text-7xl font-display font-black text-white uppercase tracking-tight leading-none">
-                TODAY'S BEST <br />
-                <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Explosive Deals</span>
+                DEALS <br />
+                <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Zone</span>
               </h2>
             </div>
             <div className="text-left md:text-right max-w-sm md:max-w-md">
@@ -771,8 +771,8 @@ export function HomeTab() {
         </div>
       </section>
 
-      {/* ESSENTIALS PRODUCT FOR YOU SECTION - DYNAMIC SPOTLIGHT GRID WITH TYPEWRITER */}
-      <section className="py-32 bg-black relative border-t border-b border-zinc-900 overflow-hidden">
+      {/* DAILY ESSENTIALS SECTION */}
+      <section id="essentials" className="py-32 bg-black relative border-t border-b border-zinc-900 overflow-hidden">
         {/* Glow backdrop element */}
         <div className="absolute top-1/2 left-10 w-[450px] h-[450px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-10 right-10 w-[350px] h-[350px] bg-[#D4AF37]/5 blur-[100px] pointer-events-none rounded-full" />
@@ -781,7 +781,7 @@ export function HomeTab() {
           <div className="mb-20">
             <span className="text-[#D4AF37] text-[10px] md:text-xs font-black tracking-[0.45em] uppercase block mb-4">EXCLUSIVE PARTNER SHOWCASE</span>
             <h2 className="text-4xl md:text-7xl font-display font-black text-white uppercase tracking-tight leading-none mb-6">
-              ESSENTIALS FOR <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Your Roster</span>
+              DAILY <span className="gold-text-glow italic text-[#D4AF37] font-serif font-normal">Essentials</span>
             </h2>
             
             {/* Typewriter subtitle */}
@@ -821,8 +821,8 @@ export function HomeTab() {
         </div>
       </section>
 
-      {/* FEATURED PRODUCTS SLIDER */}
-      <section className="py-24 w-full bg-[#050505] relative overflow-hidden">
+      {/* NEW ARRIVALS FEATURED SLIDER SECTION */}
+      <section id="arrivals" className="py-24 w-full bg-[#050505] relative overflow-hidden">
         {/* Scrolling text behind products */}
         <div className="absolute top-1/2 left-0 w-full -translate-y-1/2 pointer-events-none opacity-[0.03] select-none">
            <motion.div 
@@ -838,7 +838,7 @@ export function HomeTab() {
           <div>
             <span className="text-[#D4AF37] text-[10px] uppercase tracking-[0.5em] font-black mb-4 block">Curated Selection</span>
             <h2 className="text-4xl md:text-6xl font-display font-bold text-white uppercase tracking-tighter">
-               Market <span className="gold-text-glow">Leaders</span>
+               New <span className="gold-text-glow">Arrivals</span>
             </h2>
           </div>
           <button 

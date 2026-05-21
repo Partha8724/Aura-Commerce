@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingCart, Bell, Menu, X, Home, ShoppingBag, Bot, Settings, Link as LinkIcon, User as UserIcon, LogOut } from 'lucide-react';
+import { ShoppingCart, Bell, Menu, X, Home, ShoppingBag, Bot, Settings, Link as LinkIcon, User as UserIcon, LogOut, ChevronRight, Compass } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { CartDrawer } from './CartDrawer';
 
@@ -16,7 +16,6 @@ export function TopNav() {
     activeTab, 
     setActiveTab, 
     cart, 
-    stats, 
     user, 
     setUser, 
     isCartOpen, 
@@ -39,7 +38,9 @@ export function TopNav() {
   }, [totalItems]);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 15);
+    };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -73,6 +74,13 @@ export function TopNav() {
     { id: 'profile', label: 'Track Order', icon: LinkIcon, public: true },
   ];
 
+  const anchors = [
+    { id: 'explosive', label: 'Explosive Products' },
+    { id: 'deals', label: 'Deals Zone' },
+    { id: 'essentials', label: 'Daily Essentials' },
+    { id: 'arrivals', label: 'New Arrivals' },
+  ];
+
   const handleTabClick = (id: string) => {
     setActiveTab(id);
     setMobileMenuOpen(false);
@@ -82,17 +90,37 @@ export function TopNav() {
     setUser(null);
   };
 
+  const scrollToAnchor = (id: string) => {
+    setMobileMenuOpen(false);
+    if (activeTab !== 'home') {
+      setActiveTab('home');
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+    } else {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   return (
     <>
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-[#141414]/80 backdrop-blur-3xl border-b border-[#D4AF37]/30 shadow-[0_4px_30px_rgba(212,175,55,0.05)] py-4' : 'bg-transparent py-6'
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        scrolled 
+          ? 'bg-[#0A0A0A]/95 backdrop-blur-3xl border-b border-[#D4AF37]/35 shadow-[0_8px_35px_rgba(0,0,0,0.8)] py-3' 
+          : 'bg-transparent py-5 border-b border-transparent'
       }`}>
         <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
           
           {/* Logo */}
           <motion.div 
             className="flex items-center gap-3 cursor-pointer group" 
-            onClick={() => handleTabClick('shop')}
+            onClick={() => handleTabClick('home')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -106,11 +134,11 @@ export function TopNav() {
                 ]
               }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-              className="w-10 h-10 border border-[#D4AF37] rounded flex items-center justify-center relative overflow-hidden"
+              className="w-10 h-10 border border-[#D4AF37] rounded flex items-center justify-center relative overflow-hidden bg-black"
             >
               <motion.div 
                 animate={{ 
-                  opacity: [0.2, 0.5, 0.2],
+                  opacity: [0.15, 0.4, 0.15],
                   rotate: [0, 90, 180, 270, 360]
                 }}
                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -135,15 +163,15 @@ export function TopNav() {
           </motion.div>
 
           {/* Desktop Tabs */}
-          <div className="hidden lg:flex items-center gap-2 bg-[#1A1A1A]/80 backdrop-blur-md p-1 border border-[#D4AF37]/20 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.05)]">
+          <div className="hidden lg:flex items-center gap-2 bg-[#141414]/90 backdrop-blur-md p-1 border border-[#D4AF37]/20 rounded-full shadow-[0_0_15px_rgba(212,175,55,0.05)]">
             {tabs.filter(t => user || t.public).map(tab => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`relative px-5 py-2 text-sm transition-colors flex items-center gap-2 rounded-full ${
-                    isActive ? 'text-[#0A0A0A] font-bold' : 'text-gray-400 hover:text-[#D4AF37] font-medium'
+                  className={`relative px-5 py-2.5 text-xs transition-all duration-300 flex items-center gap-2 rounded-full cursor-pointer ${
+                    isActive ? 'text-[#0A0A0A] font-extrabold' : 'text-gray-400 hover:text-[#D4AF37] font-medium'
                   }`}
                 >
                   {isActive && (
@@ -152,8 +180,8 @@ export function TopNav() {
                       className="absolute inset-0 gold-gradient rounded-full shadow-[0_0_15px_rgba(212,175,55,0.3)]"
                     />
                   )}
-                  <tab.icon className={`w-4 h-4 z-10 ${isActive ? 'text-black' : ''}`} />
-                  <span className="relative z-10 tracking-widest uppercase text-xs">{tab.label}</span>
+                  <tab.icon className={`w-3.5 h-3.5 z-10 ${isActive ? 'text-black' : ''}`} />
+                  <span className="relative z-10 tracking-[0.15em] uppercase">{tab.label}</span>
                 </button>
               )
             })}
@@ -262,7 +290,7 @@ export function TopNav() {
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative text-[#D4AF37] hover:text-[#F4D03F] transition-all duration-300 p-2 bg-[#D4AF37]/10 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:bg-[#D4AF37]/20"
+              className="relative text-[#D4AF37] hover:text-[#F4D03F] transition-all duration-300 p-2 bg-[#D4AF37]/10 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:bg-[#D4AF37]/20 cursor-pointer"
             >
               <motion.div animate={bouncing ? { scale: [1, 1.2, 1], rotate: [0, -10, 10, 0] } : {}} transition={{ duration: 0.3 }}>
                 <ShoppingCart className="w-5 h-5" />
@@ -282,8 +310,8 @@ export function TopNav() {
             {/* Login / User Dropdown */}
             {!user ? (
               <div className="hidden md:flex items-center gap-3">
-                <button onClick={() => setActiveTab('auth')} className="text-xs uppercase tracking-widest font-bold text-gray-400 hover:text-white transition-colors">Sign In</button>
-                <button onClick={() => setActiveTab('auth')} className="text-xs uppercase tracking-widest font-bold text-black gold-gradient px-4 py-2 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all">Join</button>
+                <button onClick={() => setActiveTab('auth')} className="text-xs uppercase tracking-widest font-bold text-gray-400 hover:text-white transition-colors cursor-pointer">Sign In</button>
+                <button onClick={() => setActiveTab('auth')} className="text-xs uppercase tracking-widest font-bold text-black gold-gradient px-4 py-2 rounded-full hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all cursor-pointer">Join</button>
               </div>
             ) : (
               <div className="relative" ref={userMenuRef}>
@@ -305,7 +333,7 @@ export function TopNav() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute top-[calc(100%+10px)] right-0 w-56 bg-[#141414] border border-[#D4AF37]/20 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] backdrop-blur-xl overflow-hidden py-2"
+                      className="absolute top-[calc(100%+10px)] right-0 w-56 bg-[#141414] border border-[#D4AF37]/20 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] backdrop-blur-xl overflow-hidden py-2 z-50"
                     >
                       <div className="px-4 py-3 border-b border-white/5 mb-1">
                         <div className="text-white font-bold text-sm truncate">{user.name}</div>
@@ -313,19 +341,19 @@ export function TopNav() {
                       </div>
                       
                       <div className="p-2 border-b border-white/5 mb-1 flex flex-col gap-1">
-                        <button onClick={() => { setProfileSection('profile'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Account</button>
-                        <button onClick={() => { setProfileSection('orders'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Orders</button>
-                        <button onClick={() => { setProfileSection('addresses'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg">My Addresses</button>
+                        <button onClick={() => { setProfileSection('profile'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg cursor-pointer">My Account</button>
+                        <button onClick={() => { setProfileSection('orders'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg cursor-pointer">My Orders</button>
+                        <button onClick={() => { setProfileSection('addresses'); handleTabClick('profile'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors rounded-lg cursor-pointer">My Addresses</button>
                         
                         {(user.role === 'owner' || user.email === 'parthadutta8724@gmail.com') && (
-                          <button onClick={() => { handleTabClick('admin'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2 transition-colors rounded-lg">
+                          <button onClick={() => { handleTabClick('admin'); setUserMenuOpen(false); }} className="w-full px-3 py-2 text-left text-sm text-[#D4AF37] hover:bg-[#D4AF37]/10 flex items-center gap-2 transition-colors rounded-lg cursor-pointer">
                             <Settings className="w-4 h-4" /> Admin Panel
                           </button>
                         )}
                       </div>
 
                       <div className="p-2">
-                        <button onClick={handleLogout} className="w-full px-3 py-2 text-left text-sm text-[#DC143C] hover:bg-[#DC143C]/10 flex items-center gap-2 transition-colors rounded-lg">
+                        <button onClick={handleLogout} className="w-full px-3 py-2 text-left text-sm text-[#DC143C] hover:bg-[#DC143C]/10 flex items-center gap-2 transition-colors rounded-lg cursor-pointer">
                           <LogOut className="w-4 h-4" /> Sign Out
                         </button>
                       </div>
@@ -335,42 +363,164 @@ export function TopNav() {
               </div>
             )}
 
+            {/* Hamburger Button for Off-Canvas */}
             <button 
-              className="lg:hidden text-gray-300 ml-2"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden text-gray-300 ml-2 p-2 hover:bg-white/5 rounded-full cursor-pointer transition-colors"
+              onClick={() => setMobileMenuOpen(true)}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              <Menu className="w-6 h-6" />
             </button>
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 bg-[#141414] border-b border-[#D4AF37]/20 py-4 px-6 flex flex-col gap-2 shadow-2xl backdrop-blur-2xl">
-            {tabs.filter(t => user || t.public).map(tab => (
-               <button
-                  key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  className={`px-4 py-3 text-left font-medium transition-colors flex items-center gap-3 rounded-lg ${
-                    activeTab === tab.id ? 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <tab.icon className="w-5 h-5" />
-                  <span className="uppercase tracking-widest text-xs">{tab.label}</span>
-                </button>
+        {/* Elegant Submodule Anchors Menu (On Desktop when on Home Tab for easier navigation) */}
+        {activeTab === 'home' && (
+          <div className="hidden lg:flex items-center justify-center gap-10 py-2 border-t border-white/5 bg-[#0A0A0B]/40 backdrop-blur-3xl transition-opacity duration-300">
+            {anchors.map(anchor => (
+              <button
+                key={anchor.id}
+                onClick={() => scrollToAnchor(anchor.id)}
+                className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37]/75 hover:text-white hover:tracking-[0.25em] transition-all duration-300 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="w-1 h-1 bg-[#D4AF37] rounded-full opacity-60 animate-pulse" />
+                {anchor.label}
+              </button>
             ))}
-            {!user && (
-              <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-white/10">
-                <button onClick={() => { handleTabClick('auth') }} className="px-4 py-3 text-center text-xs uppercase tracking-widest font-bold text-gray-400 hover:text-white transition-colors">Sign In</button>
-                <button onClick={() => { handleTabClick('auth') }} className="px-4 py-3 text-center text-xs uppercase tracking-widest font-bold text-black gold-gradient rounded-lg">Join</button>
-              </div>
-            )}
           </div>
         )}
       </nav>
+
+      {/* OFF-CANVAS BACKDROP MASK */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.6 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black z-40 lg:hidden backdrop-blur-xs"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* OFF-CANVAS RESPONSIVE SIDEBAR DRAWER */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            initial={{ x: '100%', opacity: 0.9 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0.9 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 210 }}
+            className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-[#0A0A0A] border-l border-[#D4AF37]/20 z-50 p-6 flex flex-col justify-between shadow-2xl backdrop-blur-3xl lg:hidden overflow-y-auto font-sans"
+          >
+            {/* Header / Brand with Close Button */}
+            <div>
+              <div className="flex items-center justify-between pb-6 border-b border-white/5 mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 border border-[#D4AF37] rounded flex items-center justify-center relative overflow-hidden bg-black">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37] to-[#8C6D23] opacity-30" />
+                    <span className="font-display font-medium text-sm text-[#D4AF37] relative z-10">A</span>
+                  </div>
+                  <span className="text-md font-display font-bold tracking-[0.2em] uppercase text-white">AURA</span>
+                </div>
+                <button 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 text-gray-400 hover:text-[#D4AF37] hover:bg-white/5 rounded-full transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Main Tab Pages */}
+              <div className="space-y-2 mb-8">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-black mb-3">Pages</div>
+                {tabs.filter(t => user || t.public).map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => handleTabClick(tab.id)}
+                      className={`w-full px-4 py-3 text-left font-bold transition-all duration-300 flex items-center justify-between rounded-xl border cursor-pointer ${
+                        isActive 
+                          ? 'bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30' 
+                          : 'text-gray-400 border-transparent hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <tab.icon className="w-4 h-4" />
+                        <span className="uppercase tracking-widest text-xs">{tab.label}</span>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 opacity-50 transition-transform ${isActive ? 'translate-x-[2px]' : ''}`} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Home Anchor Fast Scroll Section */}
+              <div className="space-y-2 pt-6 border-t border-white/5">
+                <div className="text-[10px] text-gray-500 uppercase tracking-widest font-black flex items-center gap-1.5 mb-3">
+                  <Compass className="w-3 h-3 text-[#D4AF37]" /> Browse Store Sections
+                </div>
+                {anchors.map(anchor => (
+                  <button
+                    key={anchor.id}
+                    onClick={() => scrollToAnchor(anchor.id)}
+                    className="w-full px-4 py-2.5 text-left text-xs font-bold uppercase tracking-widest text-[#D4AF37] hover:text-white hover:bg-[#D4AF37]/5 rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    <span className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full shrink-0" />
+                    {anchor.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bottom Accounts & Support Log */}
+            <div className="pt-8 border-t border-white/5 mt-auto">
+              {!user ? (
+                <div className="flex flex-col gap-2.5">
+                  <button 
+                    onClick={() => handleTabClick('auth')} 
+                    className="w-full py-3.5 text-center text-xs uppercase tracking-widest font-bold text-gray-400 hover:text-white border border-white/10 rounded-xl hover:border-white/25 transition-all cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => handleTabClick('auth')} 
+                    className="w-full py-3.5 text-center text-xs uppercase tracking-widest font-bold text-black gold-gradient rounded-xl shadow-lg cursor-pointer"
+                  >
+                    Join Aura
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#D4AF37] to-amber-700 flex items-center justify-center text-[#D4AF37] font-bold text-sm">
+                      {user.avatar ? (
+                        <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                      ) : (
+                        user.name.charAt(0)
+                      )}
+                    </div>
+                    <div className="truncate flex-1">
+                      <div className="text-white text-xs font-bold leading-none truncate">{user.name}</div>
+                      <div className="text-gray-500 text-[10px] mt-0.5 leading-none truncate">{user.email}</div>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { handleLogout(); setMobileMenuOpen(false); }} 
+                    className="w-full py-3 text-center text-xs uppercase tracking-widest font-bold text-[#DC143C] bg-[#DC143C]/5 border border-[#DC143C]/10 rounded-xl hover:bg-[#DC143C]/10 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <LogOut className="w-4.5 h-4.5" /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 }
-

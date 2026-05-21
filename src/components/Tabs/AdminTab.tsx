@@ -1235,7 +1235,7 @@ function AliExpressConnector() {
 }
 
 function ProductsSection() {
-  const { products, updateProduct, deleteProduct, addProduct } = useStore();
+  const { products, updateProduct, deleteProduct, addProduct, addBotLog } = useStore();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form states for manual edits
@@ -1261,6 +1261,40 @@ function ProductsSection() {
   const [newVideoUrl, setNewVideoUrl] = useState('');
   const [newStock, setNewStock] = useState(100);
   const [newImageInput, setNewImageInput] = useState('');
+
+  // SFS image compliance checks (mistake cleanup)
+  const productsWithoutImage = products.filter(product => {
+    const hasMainImage = product.imageUrl && product.imageUrl.trim().length > 0 && 
+                         !product.imageUrl.includes('placeholder') && 
+                         !product.imageUrl.includes('undefined') && 
+                         !product.imageUrl.includes('null');
+    const hasImagesList = product.images && product.images.length > 0 && 
+                          product.images.some(img => img && img.trim().length > 0 && 
+                          !img.includes('placeholder') && 
+                          !img.includes('undefined') && 
+                          !img.includes('null'));
+    return !hasMainImage && !hasImagesList;
+  });
+
+  const handleCleanProductsWithoutImages = () => {
+    if (productsWithoutImage.length === 0) {
+      alert('Your product catalog is already pristine! No products without images were found.');
+      return;
+    }
+    const countToDelete = productsWithoutImage.length;
+    productsWithoutImage.forEach(p => {
+      deleteProduct(p.id);
+    });
+
+    addBotLog({
+      id: `clean-images-${Date.now()}`,
+      bot: 'Atelier Sanitizer',
+      message: `Enforced absolute media compliance by pruning ${countToDelete} invalid products with missing or blank images in a single sweep.`,
+      date: new Date().toLocaleTimeString(),
+      type: 'success'
+    });
+    alert(`Success! Instantly pruned ${countToDelete} invalid products with missing or blank images.`);
+  };
 
   const handleAddNewPriceChange = (val: number) => {
     setNewFinalPrice(val);
@@ -1398,6 +1432,36 @@ function ProductsSection() {
           className="px-5 py-3 gold-gradient text-black text-sm font-extrabold rounded-xl transition-all uppercase tracking-wider flex items-center gap-2 hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] shadow-lg"
         >
           <Plus className="w-4 h-4" /> Add Custom Product
+        </button>
+      </div>
+
+      {/* Catalog Image Sanitizer compliance card */}
+      <div className="bg-[#141414] border border-[#D4AF37]/15 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative overflow-hidden shadow-[inset_0_0_15px_rgba(212,175,55,0.03)] font-sans">
+        {/* Futuristic accent background glow */}
+        <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 bg-[#D4AF37]/5 blur-[60px] pointer-events-none rounded-full" />
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0 select-none">
+            <AlertCircle className="w-6 h-6 animate-pulse" />
+          </div>
+          <div>
+            <span className="text-[10px] text-[#D4AF37] font-mono uppercase tracking-widest font-black block">Atelier Compliance Monitor</span>
+            <h3 className="text-lg font-bold text-white mb-1">Catalog Image Sanitizer Bot</h3>
+            <p className="text-gray-400 text-xs max-w-xl">
+              Scan, find, and prune list elements missing valid media assets. Identified <span className="text-red-400 font-bold font-mono">{productsWithoutImage.length}</span> faulty products without images currently on your storefront.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleCleanProductsWithoutImages}
+          disabled={productsWithoutImage.length === 0}
+          className={`relative z-10 px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 select-none border shrink-0 ${
+            productsWithoutImage.length > 0
+              ? 'bg-red-950/20 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500 cursor-pointer hover:shadow-[0_0_15px_rgba(239,68,68,0.25)]'
+              : 'bg-white/5 border-white/5 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          <Trash2 className="w-4 h-4" />
+          Prune Invalid Products ({productsWithoutImage.length})
         </button>
       </div>
 
