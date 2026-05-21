@@ -64,7 +64,7 @@ export const initialProducts: Product[] = Array.from({ length: 50 }, (_, i) => {
   const imageUrl = `https://images.unsplash.com/${photoId}?auto=format&fit=crop&q=80&w=800`;
 
   return {
-    id: `PROD-${(i + 1).toString().padStart(3, '0')}`,
+    id: `f6381648-8dfa-45be-9a2c-ca4251cd60${(i + 1).toString().padStart(2, '0')}`,
     title,
     description: descriptions[i % descriptions.length],
     supplier: isCJ ? 'CJ Dropshipping' : 'AliExpress',

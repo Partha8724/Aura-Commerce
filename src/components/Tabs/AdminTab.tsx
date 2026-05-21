@@ -10,6 +10,7 @@ import {
   Edit2, Trash2, X, Headphones, MessageSquare, Send, Check, Search, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { generateUUID, generateDeterministicUUID } from '../../lib/utils';
 import CJConnectionPanel from '../CJConnectionPanel';
 
 function BotAssistant() {
@@ -567,7 +568,7 @@ function BotsSection() {
                 const finalPrice = parseFloat((basePrice + markup).toFixed(2));
 
                 const newProduct: Product = {
-                   id: `cj-${target.pid || Math.floor(Math.random() * 10000)}`,
+                   id: generateDeterministicUUID(target.pid || ''),
                    title: target.productNameEn || target.productName || 'CJ Product',
                    description: target.description || target.productHtmlDescription || target.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
                    supplier: 'CJ Dropshipping',
@@ -603,7 +604,7 @@ function BotsSection() {
                 const finalPrice = parseFloat((basePrice + markup).toFixed(2));
 
                 const basicProduct: Product = {
-                   id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
+                   id: generateDeterministicUUID(prod.pid || ''),
                    title: prod.productNameEn || prod.productName || 'CJ Product',
                    description: prod.productNameEn || 'Automatically imported product from CJ Dropshipping.',
                    supplier: 'CJ Dropshipping',
@@ -811,7 +812,7 @@ function BotsSection() {
           const finalPrice = parseFloat((basePrice + markup).toFixed(2));
 
           const newProduct: Product = {
-            id: `cj-${targetProd.pid || Math.floor(Math.random() * 10000)}`,
+            id: generateDeterministicUUID(targetProd.pid || ''),
             title: targetProd.productNameEn || targetProd.productName || 'Imported CJ Product',
             description: targetProd.description || targetProd.productKeyEn || targetProd.productHtmlDescription || 'Imported product from CJ Dropshipping.',
             supplier: 'CJ Dropshipping',
@@ -1343,7 +1344,7 @@ function ProductsSection() {
     }
     const finalImgs = newImagesList.length > 0 ? newImagesList : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800'];
     const customProd: Product = {
-      id: `custom-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: generateUUID(),
       title: newTitle.trim(),
       description: newDescription.trim() || 'Exquisite custom creation handpicked for premium quality, performance, and style.',
       category: newCategory,
@@ -3342,7 +3343,7 @@ function CJManagementSection() {
       addLog(`⚙️ Processing metadata & images...`);
       
       const newProduct = {
-         id: `cj-${p.pid || Math.floor(Math.random() * 10000)}`,
+         id: generateDeterministicUUID(p.pid || ''),
          title: p.productName || p.title || 'CJ Imported Product',
          description: p.productDescription || 'Automatically imported via CJ Dropshipping API integration.',
          supplier: 'CJ Dropshipping',

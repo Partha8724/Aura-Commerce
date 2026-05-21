@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { Product, CartItem, Order, Stats, SupportMessage } from '../types';
 import { initialProducts } from '../data/products';
 import { supabase } from '../lib/supabase';
+import { generateDeterministicUUID } from '../lib/utils';
 import { cjApi } from '../lib/cj-api';
 
 export interface User {
@@ -154,25 +155,19 @@ export const useStore = create<AppState>()(
           category: p.category || 'General',
           price: p.price || p.finalPrice || 0,
           base_price: p.basePrice || 0,
-          basePrice: p.basePrice || 0,
           commission: p.commission || 0,
           final_price: p.finalPrice || p.price || 0,
-          finalPrice: p.finalPrice || p.price || 0,
           stock: p.stock || 100,
           rating: p.rating || 4.5,
-          images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl]),
-          imageUrl: p.imageUrl || '',
+          images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl || '']),
           image_url: p.imageUrl || '',
           variants: p.variants ? JSON.stringify(p.variants) : JSON.stringify([]),
           weight: p.weight || 0,
           delivery: p.delivery || '5-9 Days',
           shipping: p.shipping || 'Free Global Shipping',
           is_new: p.isNew ?? true,
-          isNew: p.isNew ?? true,
           is_demo: p.isDemo ?? false,
-          isDemo: p.isDemo ?? false,
           discount_eligible: p.discountEligible ?? true,
-          discountEligible: p.discountEligible ?? true,
           created_at: new Date().toISOString()
         };
 
@@ -251,27 +246,22 @@ export const useStore = create<AppState>()(
           const p = updates.price ?? updates.finalPrice;
           dbPayload.price = p;
           dbPayload.final_price = p;
-          dbPayload.finalPrice = p;
         }
         if (updates.basePrice !== undefined) {
           dbPayload.base_price = updates.basePrice;
-          dbPayload.basePrice = updates.basePrice;
         }
         if (updates.commission !== undefined) dbPayload.commission = updates.commission;
         if (updates.stock !== undefined) dbPayload.stock = updates.stock;
         if (updates.images !== undefined) dbPayload.images = JSON.stringify(updates.images);
         if (updates.variants !== undefined) dbPayload.variants = JSON.stringify(updates.variants);
         if (updates.imageUrl !== undefined) {
-          dbPayload.imageUrl = updates.imageUrl;
           dbPayload.image_url = updates.imageUrl;
         }
         if (updates.isNew !== undefined) {
           dbPayload.is_new = updates.isNew;
-          dbPayload.isNew = updates.isNew;
         }
         if (updates.isDemo !== undefined) {
           dbPayload.is_demo = updates.isDemo;
-          dbPayload.isDemo = updates.isDemo;
         }
 
         if (Object.keys(dbPayload).length > 0) {
@@ -1183,7 +1173,7 @@ export const useStore = create<AppState>()(
               const commission = parseFloat((basePrice * 0.45).toFixed(2)); // 45% markup
               const finalPrice = basePrice + commission;
               return {
-                id: `cj-${item.pid || item.productId || i}`,
+                id: generateDeterministicUUID(item.pid || item.productId || String(i)),
                 title: item.productName || item.productNameEn || 'Sourced Premium Item Royal',
                 description: item.description || 'Stunning life essential certified for high-end retail.',
                 supplier: 'CJ Dropshipping',

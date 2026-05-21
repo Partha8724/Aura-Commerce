@@ -14,6 +14,7 @@ import { OwnerAuth } from './components/OwnerAuth';
 import { ProductDetail } from './components/ProductDetail';
 import { SupportWidget } from './components/SupportWidget';
 import { supabase } from './lib/supabase';
+import { generateDeterministicUUID } from './lib/utils';
 import { cjApi } from './lib/cj-api';
 import { Product } from './types';
 
@@ -139,25 +140,19 @@ export default function App() {
               category: p.category || 'General',
               price: p.price || p.finalPrice || 0,
               base_price: p.basePrice || 0,
-              basePrice: p.basePrice || 0,
               commission: p.commission || 0,
               final_price: p.finalPrice || p.price || 0,
-              finalPrice: p.finalPrice || p.price || 0,
               stock: p.stock || 100,
               rating: p.rating || 4.5,
               images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl || '']),
-              imageUrl: p.imageUrl || '',
               image_url: p.imageUrl || '',
               variants: p.variants ? JSON.stringify(p.variants) : JSON.stringify([]),
               weight: p.weight || 0,
               delivery: p.delivery || '5-9 Days',
               shipping: p.shipping || 'Free Global Shipping',
               is_new: p.isNew ?? true,
-              isNew: p.isNew ?? true,
               is_demo: p.isDemo ?? false,
-              isDemo: p.isDemo ?? false,
               discount_eligible: p.discountEligible ?? true,
-              discountEligible: p.discountEligible ?? true,
               created_at: new Date().toISOString()
             }));
 
@@ -478,7 +473,7 @@ export default function App() {
                         const finalPrice = parseFloat((basePrice + markup).toFixed(2));
 
                         const newProduct = {
-                          id: `cj-${target.pid || Math.floor(Math.random() * 10000)}`,
+                          id: generateDeterministicUUID(target.pid || ''),
                           title: target.productNameEn || target.productName || 'CJ Product',
                           description: target.description || target.productHtmlDescription || target.productKeyEn || 'Automatically imported product from CJ Dropshipping.',
                           supplier: 'CJ Dropshipping',
@@ -512,7 +507,7 @@ export default function App() {
                         const finalPrice = parseFloat((basePrice + markup).toFixed(2));
 
                         const basicProduct = {
-                          id: `cj-${prod.pid || Math.floor(Math.random() * 10000)}`,
+                          id: generateDeterministicUUID(prod.pid || ''),
                           title: prod.productNameEn || prod.productName || 'CJ Product',
                           description: prod.productNameEn || 'Automatically imported product from CJ Dropshipping.',
                           supplier: 'CJ Dropshipping',
