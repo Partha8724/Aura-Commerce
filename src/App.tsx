@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
+import { initialProducts } from './data/products';
 import { Intro } from './components/Intro';
 import { Auth } from './components/Auth';
 import { TopNav } from './components/TopNav';
@@ -128,15 +129,65 @@ export default function App() {
           .order('created_at', { ascending: false });
 
         if (dbProds && !error) {
+          if (dbProds.length === 0) {
+            console.log('[Supabase Sync] Products table is empty. Seeding initial products database cache...');
+            const mappedInitial = initialProducts.map(p => ({
+              id: p.id,
+              title: p.title,
+              description: p.description || '',
+              supplier: p.supplier || 'CJ Dropshipping',
+              category: p.category || 'General',
+              price: p.price || p.finalPrice || 0,
+              base_price: p.basePrice || 0,
+              basePrice: p.basePrice || 0,
+              commission: p.commission || 0,
+              final_price: p.finalPrice || p.price || 0,
+              finalPrice: p.finalPrice || p.price || 0,
+              stock: p.stock || 100,
+              rating: p.rating || 4.5,
+              images: p.images ? JSON.stringify(p.images) : JSON.stringify([p.imageUrl || '']),
+              imageUrl: p.imageUrl || '',
+              image_url: p.imageUrl || '',
+              variants: p.variants ? JSON.stringify(p.variants) : JSON.stringify([]),
+              weight: p.weight || 0,
+              delivery: p.delivery || '5-9 Days',
+              shipping: p.shipping || 'Free Global Shipping',
+              is_new: p.isNew ?? true,
+              isNew: p.isNew ?? true,
+              is_demo: p.isDemo ?? false,
+              isDemo: p.isDemo ?? false,
+              discount_eligible: p.discountEligible ?? true,
+              discountEligible: p.discountEligible ?? true,
+              created_at: new Date().toISOString()
+            }));
+
+            const { error: seedError } = await supabase
+              .from('products')
+              .insert(mappedInitial);
+            
+            if (!seedError) {
+              console.log('[Supabase Sync] Seeding products complete.');
+              useStore.setState({ products: initialProducts });
+              return initialProducts;
+            } else {
+              console.warn('[Supabase Sync] Seeding initial products failed:', seedError.message);
+              // Fallback to local memory products representation
+              useStore.setState({ products: initialProducts });
+              return initialProducts;
+            }
+          }
+
           const mapped = dbProds.map(mapDbProductToAppState);
           useStore.setState({ products: mapped });
           console.log('[Supabase Sync] Fetched and updated products catalog:', mapped.length);
           return mapped;
         } else if (error) {
           console.warn('[Supabase Sync] products table check failed:', error.message);
+          useStore.setState({ products: initialProducts });
         }
       } catch (err: any) {
         console.warn('[Supabase Sync] Exception loading products:', err.message);
+        useStore.setState({ products: initialProducts });
       }
       return [];
     }

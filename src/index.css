@@ -73,17 +73,24 @@
   }
 }
 
-/* Hide scrollbar for a cleaner look */
+/* Custom Unified Golden Scrollbar Stylings */
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: black;
+  background: #0A0A0A !important;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
+  background: linear-gradient(180deg, #B8960C, #D4AF37, #B8960C) !important;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: linear-gradient(180deg, #D4AF37, #F4D03F, #D4AF37) !important;
+}
+
+/* Firefox scrollbar compatibility rules (solid gold thumb on deep off-black track) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #D4AF37 #0A0A0A;
 }
