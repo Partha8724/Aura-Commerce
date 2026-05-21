@@ -6,7 +6,7 @@ import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { supabase } from '../lib/supabase';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { cart, removeFromCart, updateCartQuantity, clearCart, addOrder, addStats, user } = useStore();
+  const { cart, removeFromCart, updateCartQuantity, clearCart, addOrder, addStats, placeOrderAndFulfillToCJ, user } = useStore();
   const [checkoutStep, setCheckoutStep] = useState(0); // 0: cart, 1: details, 2: processing, 3: success
   const [formData, setFormData] = useState({
     name: '',
@@ -124,17 +124,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setCheckoutStep(2);
     
     // Simulate payment processing UI briefly even though payment is done
-    setTimeout(() => {
-      setCheckoutStep(3);
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
-      
-      const orderNum = 'AURA-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-      const newOrder: any = {
-        id: orderNum,
-        order_number: orderNum,
+    setTimeout(async () => {
+      const payload = {
         customerName: formData.name || 'Customer',
         email: formData.email || 'customer@example.com',
-        customer_phone: formData.phone || '555-0100',
+        phone: formData.phone || '555-0100',
         shipping_address: {
           line1: formData.addressLine1 || '123 Luxury Ave',
           line2: formData.addressLine2 || '',
@@ -144,23 +138,22 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           country: formData.country || 'US'
         },
         items: [...cart],
-        subtotal: totalCost,
-        shipping_total: 0,
-        total_commission: totalCommission,
-        commissionEarned: totalCommission,
         total: totalCost,
-        total_amount: totalCost,
-        status: 'pending',
-        date: new Date().toISOString(),
-        supplier: cart[0]?.supplier || 'CJ Dropshipping',
+        total_commission: totalCommission,
         paymentMethod: 'PayPal',
         payment_status: 'paid'
       };
-      
+
       setCheckoutTotal(totalCost);
-      addOrder(newOrder);
-      addStats(totalCost, totalCommission);
-      clearCart();
+      const res = await placeOrderAndFulfillToCJ(payload);
+      if (res.success) {
+        setCheckoutStep(3);
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
+        clearCart();
+      } else {
+        setCheckoutStep(0);
+        alert(`Order placement issue: ${res.error || 'Please verify form details'}`);
+      }
     }, 1000);
   };
 
@@ -169,17 +162,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     setCheckoutStep(2);
     
     // Simulate payment processing
-    setTimeout(() => {
-      setCheckoutStep(3);
-      confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
-      
-      const orderNum = 'AURA-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-      const newOrder: any = {
-        id: orderNum,
-        order_number: orderNum,
+    setTimeout(async () => {
+      const payload = {
         customerName: formData.name || 'Demo Customer',
         email: formData.email || 'demo@example.com',
-        customer_phone: formData.phone || '555-0100',
+        phone: formData.phone || '555-0100',
         shipping_address: {
           line1: formData.addressLine1 || '123 Luxury Ave',
           line2: formData.addressLine2 || '',
@@ -189,23 +176,22 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           country: formData.country || 'US'
         },
         items: [...cart],
-        subtotal: totalCost,
-        shipping_total: 0,
-        total_commission: totalCommission,
-        commissionEarned: totalCommission,
         total: totalCost,
-        total_amount: totalCost,
-        status: 'pending',
-        date: new Date().toISOString(),
-        supplier: cart[0]?.supplier || 'CJ Dropshipping',
+        total_commission: totalCommission,
         paymentMethod: paymentType === 'cod' ? 'Cash on Delivery (COD)' : 'Credit Card',
         payment_status: paymentType === 'cod' ? 'pending' : 'paid'
       };
-      
+
       setCheckoutTotal(totalCost);
-      addOrder(newOrder);
-      addStats(totalCost, totalCommission);
-      clearCart();
+      const res = await placeOrderAndFulfillToCJ(payload);
+      if (res.success) {
+        setCheckoutStep(3);
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
+        clearCart();
+      } else {
+        setCheckoutStep(0);
+        alert(`Order placement issue: ${res.error || 'Please verify form details'}`);
+      }
     }, 2000);
   };
 

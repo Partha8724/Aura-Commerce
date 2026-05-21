@@ -108,6 +108,16 @@ export default function App() {
     };
   }, [addBotLog]);
 
+  // Master AI Optimization Bots Scheduler Mounting Anchor
+  useEffect(() => {
+    const cleanup = useStore.getState().startAllBots();
+    return () => {
+      if (typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, []);
+
   // Unified Real-Time Database Sync Engine
   useEffect(() => {
     async function loadProductsFromSupabase() {
